@@ -1,4 +1,3 @@
-import OpenAI from 'openai';
 import { writeFileSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -8,14 +7,13 @@ const IMAGES_DIR = process.env.IMAGES_DIR || join(__dir, '../../client/assets/ge
 
 mkdirSync(IMAGES_DIR, { recursive: true });
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-// For providers that don't support b64, fall back to URL
 export async function generatePixelArtImage(prompt, submissionId) {
-  if (!process.env.OPENAI_API_KEY) {
-    // Return a placeholder when no key is configured
+  if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY.startsWith('placeholder')) {
     return { url: null, placeholder: true };
   }
+
+  const { default: OpenAI } = await import('openai');
+  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
   const response = await openai.images.generate({
     model: 'dall-e-3',
