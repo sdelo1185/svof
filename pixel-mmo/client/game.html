@@ -21,7 +21,7 @@
     body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13px;height:100vh;overflow:hidden;display:flex;flex-direction:column;}
 
     /* ── Screens ── */
-    .screen{display:none;flex:1;flex-direction:column;}
+    .screen{display:none;flex:1;flex-direction:column;min-height:0;}
     .screen.active{display:flex;}
 
     /* ── Auth ── */
@@ -84,10 +84,10 @@
     #roleTag{font-family:var(--pixel);font-size:7px;padding:2px 5px;background:var(--danger);color:#fff;border-radius:2px;margin-left:auto;}
 
     /* Play area */
-    #playArea{display:flex;flex:1;overflow:hidden;}
+    #playArea{display:flex;flex:1;overflow:hidden;min-height:0;}
 
     /* Canvas column */
-    #canvasCol{display:flex;flex-direction:column;flex:1;overflow:hidden;border-right:1px solid var(--border);}
+    #canvasCol{display:flex;flex-direction:column;flex:1;overflow:hidden;border-right:1px solid var(--border);min-height:0;}
     #phaserMount{flex-shrink:0;position:relative;background:#000;}
     #phaserMount canvas{display:block;}
 
@@ -97,7 +97,7 @@
     #roomDesc{font-size:12px;color:var(--muted);line-height:1.6;}
 
     /* Message log */
-    #logArea{flex:1;overflow-y:auto;padding:.5rem 1rem;font-size:12px;line-height:1.8;}
+    #logArea{flex:1;overflow-y:auto;padding:.5rem 1rem;font-size:12px;line-height:1.8;min-height:0;}
     .log-line{margin:0;}
     .log-line.sys{color:var(--muted);font-style:italic;}
     .log-line.err{color:var(--danger);}
@@ -111,10 +111,10 @@
     .log-line.examine pre{font-size:10px;color:var(--muted);background:var(--bg);padding:.4rem;border-radius:3px;overflow-x:auto;margin-top:.2rem;}
 
     /* Command input */
-    #cmdBar{display:flex;border-top:1px solid var(--border);flex-shrink:0;}
-    #cmdInput{flex:1;background:var(--bg);border:none;color:var(--text);padding:.6rem .75rem;font-family:var(--mono);font-size:13px;outline:none;}
-    #cmdInput::placeholder{color:var(--dim);}
-    #cmdSend{background:var(--accent);border:none;color:#fff;padding:.6rem 1rem;cursor:pointer;font-family:var(--pixel);font-size:8px;}
+    #cmdBar{display:flex;border-top:2px solid var(--border2);flex-shrink:0;background:var(--surface2);}
+    #cmdInput{flex:1;background:transparent;border:none;color:var(--text);padding:.65rem .75rem;font-family:var(--mono);font-size:13px;outline:none;}
+    #cmdInput::placeholder{color:var(--muted);}
+    #cmdSend{background:var(--accent);border:none;color:#fff;padding:.65rem 1.1rem;cursor:pointer;font-family:var(--pixel);font-size:8px;letter-spacing:1px;}
 
     /* Exits */
     #exitsArea{padding:.4rem 1rem;border-top:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;}
@@ -424,6 +424,7 @@
         <div class="admin-tab" onclick="adminTab('items')">Items</div>
         <div class="admin-tab" onclick="adminTab('npcs')">NPCs</div>
         <div class="admin-tab" onclick="adminTab('ai')">AI</div>
+        <div class="admin-tab" onclick="adminTab('agent')">Agent</div>
         <div class="admin-tab" onclick="adminTab('subs')">Review</div>
       </div>
 
@@ -558,6 +559,36 @@
             <button class="abtn" onclick="adminAICommit()" style="flex:1;color:var(--success)">✓ COMMIT</button>
             <button class="abtn danger" onclick="adminAIDiscard()" style="flex:1">✕ DISCARD</button>
           </div>
+        </div>
+      </div>
+
+      <div class="admin-content" id="acAgent">
+        <div style="font-size:10px;color:var(--warn);margin-bottom:.5rem;line-height:1.6">
+          ✦ Autonomous builder — plans and commits rooms, NPCs and items in one step. No preview.
+        </div>
+        <div class="af"><label>Theme / prompt</label>
+          <textarea id="agentPrompt" rows="3" placeholder="A crumbling lighthouse on jagged sea cliffs, haunted by the ghost of its last keeper..."></textarea>
+        </div>
+        <div class="arow">
+          <div class="af"><label>Extend dir</label>
+            <select id="agentDir"><option>n</option><option>s</option><option>e</option><option>w</option><option>ne</option><option>nw</option><option>se</option><option>sw</option><option>u</option><option>d</option></select>
+          </div>
+          <div class="af"><label>Rooms</label>
+            <input type="number" id="agentRooms" value="5" min="2" max="12" />
+          </div>
+        </div>
+        <div class="arow">
+          <div class="af"><label><input type="checkbox" id="agentNpcs" checked /> Place NPCs</label></div>
+          <div class="af"><label><input type="checkbox" id="agentItems" checked /> Place Items</label></div>
+        </div>
+        <button class="abtn" id="agentRunBtn" onclick="adminAgentRun()" style="color:var(--accent3);margin-top:.4rem">✦ RUN AGENT</button>
+        <div id="agentProgress" style="display:none;margin-top:.6rem">
+          <div style="font-size:10px;color:var(--muted);margin-bottom:.3rem">PROGRESS</div>
+          <div id="agentLog" style="font-size:10px;color:var(--text);line-height:1.8;max-height:140px;overflow-y:auto;background:var(--bg);padding:.4rem;border-radius:3px"></div>
+        </div>
+        <div id="agentResult" style="display:none;margin-top:.5rem">
+          <div style="font-size:10px;color:var(--success);margin-bottom:.25rem">✓ AREA CREATED</div>
+          <div id="agentSummary" style="font-size:10px;color:var(--muted);line-height:1.7"></div>
         </div>
       </div>
 
@@ -1113,8 +1144,19 @@ function handleGMCP(module, data) {
     case 'Admin.AIDraft':
       handleAIDraft(data);
       break;
+    case 'Admin.Agent':
+      handleAgentResult(data);
+      break;
 
     case 'Server.Message':
+      if (data.text?.startsWith('[agent:')) {
+        _agentLog(data.text.replace(/^\[agent:[^\]]+\] /, '→ '));
+        return;
+      }
+      if (data.text?.startsWith('World Agent')) {
+        _agentLog(data.text);
+        return;
+      }
       if (data.type === 'examine') {
         const attrs = JSON.stringify(data.item?.attributes || {}, null, 2);
         log(`[${(data.item?.type||'').toUpperCase()}] ${data.item?.name}\n${data.item?.description||''}`, 'sys');
@@ -1436,7 +1478,7 @@ function sideTab(tab) {
 // Admin
 // ═══════════════════════════════════════════════════
 function adminTab(tab) {
-  const tabs=['room','items','npcs','ai','subs'];
+  const tabs=['room','items','npcs','ai','agent','subs'];
   document.querySelectorAll('.admin-tab').forEach((t,i) => t.classList.toggle('active', tabs[i]===tab));
   document.querySelectorAll('.admin-content').forEach((c,i) => c.classList.toggle('active', tabs[i]===tab));
 }
@@ -1689,6 +1731,47 @@ function adminNpcDialogue() {
   let dialogue;
   try { dialogue = JSON.parse(raw); } catch { log('Dialogue must be valid JSON','err'); return; }
   socket?.emit('admin:npc:dialogue', { npc_id: id, dialogue });
+}
+
+// ─── Autonomous World Agent ───────────────────────────────────────────────────
+function adminAgentRun() {
+  const prompt = document.getElementById('agentPrompt').value.trim();
+  if (!prompt) { log('Agent: prompt required.', 'err'); return; }
+  const btn = document.getElementById('agentRunBtn');
+  btn.disabled = true; btn.textContent = '⏳ RUNNING...';
+  document.getElementById('agentProgress').style.display = 'block';
+  document.getElementById('agentResult').style.display = 'none';
+  document.getElementById('agentLog').textContent = '';
+  adminTab('agent');
+  socket?.emit('admin:agent:run', {
+    prompt,
+    direction: document.getElementById('agentDir').value,
+    room_count: Number(document.getElementById('agentRooms').value) || 5,
+    include_npcs: document.getElementById('agentNpcs').checked,
+    include_items: document.getElementById('agentItems').checked,
+  });
+}
+
+function handleAgentResult(data) {
+  const btn = document.getElementById('agentRunBtn');
+  btn.disabled = false; btn.textContent = '✦ RUN AGENT';
+  if (data.status === 'complete') {
+    document.getElementById('agentResult').style.display = 'block';
+    document.getElementById('agentSummary').innerHTML =
+      `<strong>${escapeHtml(data.area_name)}</strong><br>` +
+      `${escapeHtml(data.theme_note)}<br><br>` +
+      `${data.rooms?.length || 0} rooms &nbsp;·&nbsp; ${data.npcs?.length || 0} NPCs &nbsp;·&nbsp; ${data.items?.length || 0} items<br>` +
+      (data.entry_room_id ? `Entry: <span style="color:var(--dim)">${data.entry_room_id.slice(0,8)}</span>` : '');
+  } else if (data.status === 'error') {
+    _agentLog(`ERROR: ${data.message}`);
+  }
+}
+
+function _agentLog(text) {
+  const el = document.getElementById('agentLog');
+  if (!el) return;
+  el.textContent += (el.textContent ? '\n' : '') + text;
+  el.scrollTop = el.scrollHeight;
 }
 
 // ─── Worldbuilding submissions review ─────────────────────────────────────────

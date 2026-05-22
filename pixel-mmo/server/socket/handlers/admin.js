@@ -30,6 +30,7 @@ import {
 } from '../../engine/roomManager.js';
 import { placeItem, removeItem, getItemsInRoom, getRoomCap, getItemCount } from '../../engine/itemManager.js';
 import { generateRoomDraft, storeDraft, getDraft, clearDraft, commitDraft } from '../../engine/worldBuilder.js';
+import { runWorldAgent } from '../../services/worldAgent.js';
 import { GM, send, msg, err } from '../gmcp.js';
 
 export function registerAdminHandlers(io, socket) {
@@ -58,6 +59,7 @@ export function registerAdminHandlers(io, socket) {
   socket.on('admin:ai:generate',  guard(handleAIGenerate));
   socket.on('admin:ai:commit',    guard(handleAICommit));
   socket.on('admin:ai:discard',   guard(handleAIDiscard));
+  socket.on('admin:agent:run',    guard(handleAgentRun));
 }
 
 // ─── handlers ────────────────────────────────────────────────────────────────
@@ -196,6 +198,35 @@ async function handleAIDiscard(session) {
   clearDraft(session.socketId);
   msg(_getSocket(session.socketId), 'AI draft discarded.');
   send(_getSocket(session.socketId), GM.ADMIN_DRAFT, { status: 'discarded' });
+}
+
+async function handleAgentRun(session, { prompt, direction = 'n', room_count = 5, include_npcs = true, include_items = true }) {
+  if (!prompt) throw new Error('prompt required.');
+  const socket = _getSocket(session.socketId);
+  msg(socket, `World Agent starting: "${prompt}"`);
+
+  let result;
+  try {
+    result = await runWorldAgent(
+      {
+        prompt,
+        currentRoomId: session.roomId,
+        exitDir:       direction,
+        roomCount:     room_count,
+        includeNpcs:   include_npcs,
+        includeItems:  include_items,
+      },
+      (step, detail) => msg(socket, `[agent:${step}] ${detail}`),
+    );
+  } catch (e) {
+    send(socket, GM.ADMIN_AGENT, { status: 'error', message: e.message });
+    throw e;
+  }
+
+  const summary = `"${result.area_name}": ${result.rooms.length} rooms, ${result.npcs.length} NPCs, ${result.items.length} items.`;
+  msg(socket, `✓ ${summary}`);
+  send(socket, GM.ADMIN_AGENT, { status: 'complete', ...result });
+  send(socket, GM.ADMIN_ROOM, getAdminRoomOverlay(session.roomId));
 }
 
 // ─── helpers ─────────────────────────────────────────────────────────────────

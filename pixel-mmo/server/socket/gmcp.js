@@ -38,6 +38,7 @@ export const GM = {
   COMBAT_LEVELUP:  'Combat.LevelUp',
   ADMIN_ROOM:      'Admin.RoomInfo',
   ADMIN_DRAFT:     'Admin.AIDraft',
+  ADMIN_AGENT:     'Admin.Agent',
   SERVER_MSG:      'Server.Message',
   SERVER_ERR:      'Server.Error',
 };
