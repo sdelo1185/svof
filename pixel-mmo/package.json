@@ -1,0 +1,10 @@
+{
+  "name": "pixel-mmo",
+  "version": "0.1.0",
+  "description": "32-bit pixel art MMO inspired by Achaea: Dreams of Divine Lands",
+  "scripts": {
+    "install": "cd server && npm install",
+    "start": "cd server && npm start",
+    "dev": "cd server && npm run dev"
+  }
+}
