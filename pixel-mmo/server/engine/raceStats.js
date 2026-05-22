@@ -19,16 +19,16 @@ export const RACE_STATS = {
 };
 
 export const CLASS_STATS = {
-  adventurer: { hp_bonus:0,  mp_bonus:0,  ep_bonus:0,  lore:'A wanderer between paths.' },
-  magi:       { hp_bonus:-10, mp_bonus:30, ep_bonus:0,  lore:'Wielders of elemental destruction and the Logos.' },
-  monk:       { hp_bonus:20,  mp_bonus:0,  ep_bonus:30, lore:'Masters of unarmed combat and inner discipline.' },
-  paladin:    { hp_bonus:20,  mp_bonus:10, ep_bonus:10, lore:'Holy knights sworn to the Light.' },
-  serpentlord:{ hp_bonus:0,  mp_bonus:10, ep_bonus:10, lore:'Venomous assassins of House Ashtan.' },
-  occultist:  { hp_bonus:-10, mp_bonus:40, ep_bonus:0,  lore:'Binders of demons and wielders of chaos.' },
-  bard:       { hp_bonus:0,  mp_bonus:20, ep_bonus:10, lore:'Virtuosos who weave music into reality.' },
-  blademaster:{ hp_bonus:10, mp_bonus:0,  ep_bonus:20, lore:'Duellists of unmatched blade technique.' },
-  druid:      { hp_bonus:10, mp_bonus:20, ep_bonus:10, lore:'Guardians of Eleusis and the natural order.' },
-  priest:     { hp_bonus:10, mp_bonus:20, ep_bonus:0,  lore:'Devoted healers and warriors of the Divine.' },
+  adventurer: { hp_bonus:0,   mp_bonus:0,  ep_bonus:0,  atk_bonus:2,  lore:'A wanderer between paths.' },
+  magi:       { hp_bonus:-10, mp_bonus:30, ep_bonus:0,  atk_bonus:-3, lore:'Wielders of elemental destruction and the Logos.' },
+  monk:       { hp_bonus:20,  mp_bonus:0,  ep_bonus:30, atk_bonus:4,  lore:'Masters of unarmed combat and inner discipline.' },
+  paladin:    { hp_bonus:20,  mp_bonus:10, ep_bonus:10, atk_bonus:3,  lore:'Holy knights sworn to the Light.' },
+  serpentlord:{ hp_bonus:0,   mp_bonus:10, ep_bonus:10, atk_bonus:3,  lore:'Venomous assassins of House Ashtan.' },
+  occultist:  { hp_bonus:-10, mp_bonus:40, ep_bonus:0,  atk_bonus:-4, lore:'Binders of demons and wielders of chaos.' },
+  bard:       { hp_bonus:0,   mp_bonus:20, ep_bonus:10, atk_bonus:0,  lore:'Virtuosos who weave music into reality.' },
+  blademaster:{ hp_bonus:10,  mp_bonus:0,  ep_bonus:20, atk_bonus:5,  lore:'Duellists of unmatched blade technique.' },
+  druid:      { hp_bonus:10,  mp_bonus:20, ep_bonus:10, atk_bonus:0,  lore:'Guardians of Eleusis and the natural order.' },
+  priest:     { hp_bonus:10,  mp_bonus:20, ep_bonus:0,  atk_bonus:1,  lore:'Devoted healers and warriors of the Divine.' },
 };
 
 export const VALID_RACES   = Object.keys(RACE_STATS);

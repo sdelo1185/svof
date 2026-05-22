@@ -286,8 +286,12 @@
     <div class="bar-group bar-hp"><span class="bar-label">HP</span><div class="bar"><div class="bar-fill" id="hpBar" style="width:100%"></div></div><span class="bar-val" id="hpVal">100/100</span></div>
     <div class="bar-group bar-mp"><span class="bar-label">MP</span><div class="bar"><div class="bar-fill" id="mpBar" style="width:100%"></div></div><span class="bar-val" id="mpVal">100/100</span></div>
     <div class="bar-group bar-ep"><span class="bar-label">EP</span><div class="bar"><div class="bar-fill" id="epBar" style="width:100%"></div></div><span class="bar-val" id="epVal">100/100</span></div>
+    <div class="bar-group" style="margin-left:auto">
+      <span style="font-size:10px;color:var(--warn)" title="Gold">⬡</span>
+      <span id="goldVal" style="font-size:11px;color:var(--warn);min-width:30px">0</span>
+    </div>
+    <div id="statsDisplay" style="display:none;font-size:10px;color:var(--muted);margin-left:.3rem;cursor:default" title="Character stats"></div>
     <div id="roleTag" style="display:none">ADMIN</div>
-    <div id="statsDisplay" style="display:none;font-size:10px;color:var(--muted);margin-left:.5rem;cursor:default" title="Character stats"></div>
   </div>
 
   <!-- Play area -->
@@ -734,6 +738,9 @@ function initPhaser(mountEl) {
 
       // Light overlay for dark rooms
       this.lightOverlay = this.add.rectangle(W/2, H/2, W, H, 0x000000, 0);
+
+      // Minimap in bottom-right corner
+      this.minimapGroup = this.add.group();
     }
 
     updateRoom(room) {
@@ -758,11 +765,59 @@ function initPhaser(mountEl) {
       }
       this.decorGroup.add(g);
 
+      // Minimap
+      this.updateMinimap(room.exits || []);
+
       // Move light overlay to top
       this.children.bringToTop(this.lightOverlay);
       this.children.bringToTop(this.playerGroup);
       this.children.bringToTop(this.selfSprite);
       this.children.bringToTop(this.selfLabel);
+      this.children.bringToTop(this.minimapGroup);
+    }
+
+    updateMinimap(exits) {
+      this.minimapGroup.clear(true, true);
+      const mg = this.add.graphics();
+      this.minimapGroup.add(mg);
+
+      const mx = W - 52, my = H - 52;  // minimap center
+      const cr = 6;  // center room radius
+
+      // Background
+      mg.fillStyle(0x000000, 0.55);
+      mg.fillRect(mx - 40, my - 40, 80, 80);
+      mg.lineStyle(1, 0x2a3050, 1);
+      mg.strokeRect(mx - 40, my - 40, 80, 80);
+
+      // Direction vectors
+      const DIR_VEC = {
+        n:[0,-1], s:[0,1], e:[1,0], w:[-1,0],
+        ne:[1,-1], nw:[-1,-1], se:[1,1], sw:[-1,1],
+        u:[0,-1], d:[0,1], in:[0,0], out:[0,0],
+      };
+
+      // Draw exits
+      mg.lineStyle(1, 0x4a5070, 1);
+      for (const exit of exits) {
+        const v = DIR_VEC[exit.dir] || [0,0];
+        if (!v[0] && !v[1]) continue;
+        const len = 24;
+        const ex = mx + v[0] * len * 0.8;
+        const ey = my + v[1] * len * 0.8;
+        mg.lineStyle(1, exit.locked ? 0x5a3030 : 0x3a5070, 1);
+        mg.lineBetween(mx, my, ex, ey);
+        // Exit dot
+        mg.fillStyle(exit.locked ? 0x703030 : 0x506090, 1);
+        mg.fillRect(ex - 3, ey - 3, 6, 6);
+        // Direction label
+        const lbl = this.add.text(ex, ey - 8, exit.dir.toUpperCase(), { fontSize:'6px', fill:'#6b7099', fontFamily:'Share Tech Mono' }).setOrigin(0.5);
+        this.minimapGroup.add(lbl);
+      }
+
+      // Center room
+      mg.fillStyle(0x7c6af7, 1);
+      mg.fillRect(mx - cr, my - cr, cr*2, cr*2);
     }
 
     setPlayerList(playerArr, selfName) {
@@ -876,6 +931,7 @@ function handleGMCP(module, data) {
     case 'Char.Status':
       selfName = data.name;
       document.getElementById('charName').textContent = `${data.name} [${data.race} ${data.class} Lv.${data.level}]`;
+      if (data.gold !== undefined) document.getElementById('goldVal').textContent = data.gold;
       isAdmin = ['admin','developer'].includes(data.role);
       document.getElementById('roleTag').style.display   = isAdmin ? '' : 'none';
       document.getElementById('adminPanel').style.display = isAdmin ? '' : 'none';
@@ -949,7 +1005,11 @@ function handleGMCP(module, data) {
       break;
     case 'Char.XP':
       charLevel = data.level;
-      log(`XP: ${data.xp}/${data.xpNeeded} (Lv.${data.level})`, 'xp');
+      log(`XP: ${data.xp}/${data.xpNeeded} (Lv.${data.level})${data.goldGained>0?` +${data.goldGained}g`:''}`, 'xp');
+      if (data.goldGained > 0) {
+        const gv = document.getElementById('goldVal');
+        if (gv) gv.textContent = (parseInt(gv.textContent)||0) + data.goldGained;
+      }
       break;
     case 'Char.Equipment':
       equipment = {};
