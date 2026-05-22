@@ -8,25 +8,55 @@ import { deriveStats, VALID_RACES, VALID_CLASSES, RACE_STATS, CLASS_STATS } from
 const router = Router();
 const SALT_ROUNDS = 10;
 
-// Register
+// Register — creates account + character in one step
 router.post('/register', async (req, res) => {
-  const { username, password, email } = req.body;
-  if (!username || !password) return res.status(400).json({ error: 'username and password required.' });
+  const { username, password, email, race: rawRace, class: rawClass } = req.body;
+  if (!username || !password) return res.status(400).json({ error: 'Name and password required.' });
   if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters.' });
+  if (username.length < 2 || username.length > 30) return res.status(400).json({ error: 'Name must be 2–30 characters.' });
 
   const db = getDb();
   if (db.prepare('SELECT id FROM accounts WHERE username = ?').get(username)) {
-    return res.status(409).json({ error: 'Username already taken.' });
+    return res.status(409).json({ error: 'That name is already taken.' });
+  }
+  if (db.prepare('SELECT id FROM characters WHERE name = ?').get(username)) {
+    return res.status(409).json({ error: 'That name is already taken.' });
   }
 
-  const hash = await bcrypt.hash(password, SALT_ROUNDS);
-  const id = uuidv4();
-  db.prepare(
-    'INSERT INTO accounts (id, username, password_hash, email, role, created_at) VALUES (?, ?, ?, ?, ?, ?)'
-  ).run(id, username, hash, email || null, 'player', Date.now());
+  const race = VALID_RACES.includes(rawRace)   ? rawRace   : 'human';
+  const cls  = VALID_CLASSES.includes(rawClass) ? rawClass  : 'adventurer';
+  const stats = deriveStats(race, cls);
+  const startRoom = db.prepare("SELECT id FROM rooms WHERE name = 'Town Square of Taroth' LIMIT 1").get()
+    ?? db.prepare("SELECT id FROM rooms WHERE safe_zone = 1 AND terrain_type = 'city' LIMIT 1").get()
+    ?? db.prepare("SELECT id FROM rooms WHERE name = 'The Void' LIMIT 1").get();
 
-  const token = signToken({ id, username, role: 'player' });
-  res.status(201).json({ token, account: { id, username, role: 'player' } });
+  const hash    = await bcrypt.hash(password, SALT_ROUNDS);
+  const accountId = uuidv4();
+  const charId    = uuidv4();
+  const now       = Date.now();
+
+  db.transaction(() => {
+    db.prepare(
+      'INSERT INTO accounts (id, username, password_hash, email, role, created_at) VALUES (?, ?, ?, ?, ?, ?)'
+    ).run(accountId, username, hash, email || null, 'player', now);
+
+    db.prepare(`
+      INSERT INTO characters
+        (id, account_id, name, race, class, level, experience,
+         health, max_health, mana, max_mana, endurance, max_endurance,
+         current_room_id, gold, created_at, last_active)
+      VALUES (?, ?, ?, ?, ?, 1, 0, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
+    `).run(
+      charId, accountId, username, race, cls,
+      stats.health, stats.max_health,
+      stats.mana,   stats.max_mana,
+      stats.endurance, stats.max_endurance,
+      startRoom?.id ?? null, now, now,
+    );
+  })();
+
+  const token = signToken({ id: accountId, username, role: 'player' });
+  res.status(201).json({ token, account: { id: accountId, username, role: 'player' }, character_id: charId });
 });
 
 // Login

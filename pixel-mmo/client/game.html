@@ -26,7 +26,7 @@
 
     /* ── Auth ── */
     #authScreen{align-items:center;justify-content:center;}
-    .auth-box{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:2.5rem;width:340px;}
+    .auth-box{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:2.5rem;width:480px;max-height:90vh;overflow-y:auto;}
     .auth-box h1{font-family:var(--pixel);font-size:10px;color:var(--accent);text-align:center;margin-bottom:.4rem;letter-spacing:2px;}
     .subtitle{font-size:11px;color:var(--muted);text-align:center;margin-bottom:1.8rem;}
     .auth-tabs{display:flex;margin-bottom:1.5rem;border-bottom:1px solid var(--border);}
@@ -223,13 +223,52 @@
       <button class="btn btn-primary" onclick="doLogin()">ENTER WORLD</button>
     </div>
     <div id="registerForm" style="display:none">
-      <label>Username</label>
-      <input type="text" id="regUser" placeholder="username" />
+      <label>Character Name</label>
+      <input type="text" id="regUser" placeholder="Your name in the world" />
       <label>Password</label>
       <input type="password" id="regPass" placeholder="min 8 characters" />
       <label>Email (optional)</label>
-      <input type="email" id="regEmail" placeholder="email@example.com" />
-      <button class="btn btn-primary" onclick="doRegister()">CREATE ACCOUNT</button>
+      <input type="email" id="regEmail" placeholder="for account recovery" />
+      <label>Race</label>
+      <div class="race-grid" id="regRaceGrid">
+        <div class="race-btn active" data-race="human">Human</div>
+        <div class="race-btn" data-race="dwarf">Dwarf</div>
+        <div class="race-btn" data-race="atavian">Atavian</div>
+        <div class="race-btn" data-race="rajamalan">Rajamalan</div>
+        <div class="race-btn" data-race="xoran">Xoran</div>
+        <div class="race-btn" data-race="grook">Grook</div>
+        <div class="race-btn" data-race="mhun">Mhun</div>
+        <div class="race-btn" data-race="troll">Troll</div>
+        <div class="race-btn" data-race="horkval">Horkval</div>
+        <div class="race-btn" data-race="siren">Siren</div>
+      </div>
+      <label>Class</label>
+      <div class="race-grid" id="regClassGrid">
+        <div class="race-btn active" data-class="adventurer">Adventurer</div>
+        <div class="race-btn" data-class="magi">Magi</div>
+        <div class="race-btn" data-class="monk">Monk</div>
+        <div class="race-btn" data-class="paladin">Paladin</div>
+        <div class="race-btn" data-class="serpentlord">Serpentlord</div>
+        <div class="race-btn" data-class="occultist">Occultist</div>
+        <div class="race-btn" data-class="bard">Bard</div>
+        <div class="race-btn" data-class="blademaster">Blademaster</div>
+        <div class="race-btn" data-class="druid">Druid</div>
+        <div class="race-btn" data-class="priest">Priest</div>
+        <div class="race-btn" data-class="alchemist">Alchemist</div>
+        <div class="race-btn" data-class="apostate">Apostate</div>
+        <div class="race-btn" data-class="depthswalker">Depthswalker</div>
+        <div class="race-btn" data-class="infernal">Infernal</div>
+        <div class="race-btn" data-class="jester">Jester</div>
+        <div class="race-btn" data-class="pariah">Pariah</div>
+        <div class="race-btn" data-class="psion">Psion</div>
+        <div class="race-btn" data-class="runewarden">Runewarden</div>
+        <div class="race-btn" data-class="sentinel">Sentinel</div>
+        <div class="race-btn" data-class="serpent">Serpent</div>
+        <div class="race-btn" data-class="shaman">Shaman</div>
+        <div class="race-btn" data-class="sylvan">Sylvan</div>
+        <div class="race-btn" data-class="unnameable">Unnameable</div>
+      </div>
+      <button class="btn btn-primary" onclick="doRegister()">ENTER WORLD</button>
     </div>
     <p class="err-msg" id="authErr"></p>
   </div>
@@ -614,6 +653,10 @@ let gameScene = null;
 let wbType = 'weapon';
 let wbPreviewData = null;
 
+// Registration state
+let regRace = 'human';
+let regClass = 'adventurer';
+
 // ═══════════════════════════════════════════════════
 // Auth
 // ═══════════════════════════════════════════════════
@@ -632,11 +675,19 @@ async function doLogin() {
 }
 async function doRegister() {
   const email = document.getElementById('regEmail').value.trim();
-  await authRequest('/api/auth/register', {
-    username: document.getElementById('regUser').value.trim(),
-    password: document.getElementById('regPass').value,
-    ...(email ? { email } : {}),
-  });
+  document.getElementById('authErr').textContent = '';
+  try {
+    const r = await apiFetch('/api/auth/register', {
+      username: document.getElementById('regUser').value.trim(),
+      password: document.getElementById('regPass').value,
+      race: regRace,
+      class: regClass,
+      ...(email ? { email } : {}),
+    });
+    token = r.token;
+    localStorage.setItem('pmmo_token', token);
+    playAs(r.character_id);
+  } catch(e) { document.getElementById('authErr').textContent = e.message; }
 }
 
 async function authRequest(path, body) {
@@ -659,6 +710,7 @@ if (token) {
 // ═══════════════════════════════════════════════════
 async function loadCharacters() {
   const chars = await apiFetch('/api/auth/characters');
+  if (chars.length === 1) { playAs(chars[0].id); return; }
   const list = document.getElementById('charList');
   if (!chars.length) {
     list.innerHTML = '<p style="color:var(--muted);font-size:12px;font-style:italic">No characters. Create one below.</p>';
@@ -684,6 +736,14 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('#classGrid .race-btn').forEach(b => b.addEventListener('click', () => {
     document.querySelectorAll('#classGrid .race-btn').forEach(r => r.classList.remove('active'));
     b.classList.add('active'); selectedClass = b.dataset.class;
+  }));
+  document.querySelectorAll('#regRaceGrid .race-btn').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('#regRaceGrid .race-btn').forEach(r => r.classList.remove('active'));
+    b.classList.add('active'); regRace = b.dataset.race;
+  }));
+  document.querySelectorAll('#regClassGrid .race-btn').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('#regClassGrid .race-btn').forEach(r => r.classList.remove('active'));
+    b.classList.add('active'); regClass = b.dataset.class;
   }));
 });
 
