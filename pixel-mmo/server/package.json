@@ -1,6 +1,6 @@
 {
   "name": "pixel-mmo-server",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "AI-assisted worldbuilding pipeline for Pixel MMO",
   "type": "module",
   "main": "server.js",
@@ -10,12 +10,15 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.30.0",
+    "bcryptjs": "^2.4.3",
     "better-sqlite3": "^11.0.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2",
     "multer": "^1.4.5-lts.1",
     "openai": "^4.52.0",
+    "socket.io": "^4.7.5",
     "uuid": "^10.0.0"
   }
 }

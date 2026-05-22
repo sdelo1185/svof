@@ -71,3 +71,6 @@ worldbuilding.db
 pixel-mmo/server/node_modules/
 pixel-mmo/server/.env
 pixel-mmo/client/assets/generated/
+pixel-mmo/server/db/*.db
+pixel-mmo/server/db/*.db-shm
+pixel-mmo/server/db/*.db-wal
