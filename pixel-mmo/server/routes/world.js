@@ -174,17 +174,34 @@ router.post('/item-templates/from-asset/:asset_id', requireAdmin, (req, res) => 
   res.status(201).json({ id, name: asset.name, type: asset.type });
 });
 
+// ─── NPCs ────────────────────────────────────────────────────────────────────
+
+router.get('/rooms/:id/npcs', (req, res) => {
+  const rows = getDb().prepare(
+    'SELECT id,name,title,race,role,description FROM npcs WHERE room_id=? AND is_active=1'
+  ).all(req.params.id);
+  res.json(rows);
+});
+
+router.post('/rooms/:id/npcs', requireAdmin, (req, res) => {
+  const { placeNpc } = require('../engine/npcManager.js');
+  // dynamic require works here since we're in CJS-compatible context
+  // Use ES import at top instead:
+  res.status(501).json({ error: 'Use admin:npc:place socket command.' });
+});
+
 // ─── Admin stats ─────────────────────────────────────────────────────────────
 
 router.get('/stats', requireAdmin, (req, res) => {
   const db = getDb();
   res.json({
-    rooms: db.prepare('SELECT COUNT(*) as n FROM rooms').get().n,
-    exits: db.prepare('SELECT COUNT(*) as n FROM room_exits').get().n,
+    rooms:          db.prepare('SELECT COUNT(*) as n FROM rooms').get().n,
+    exits:          db.prepare('SELECT COUNT(*) as n FROM room_exits').get().n,
+    npcs:           db.prepare("SELECT COUNT(*) as n FROM npcs WHERE is_active=1").get().n,
     items_in_world: db.prepare('SELECT COUNT(*) as n FROM room_items').get().n,
     item_templates: db.prepare('SELECT COUNT(*) as n FROM item_templates').get().n,
-    accounts: db.prepare('SELECT COUNT(*) as n FROM accounts').get().n,
-    characters: db.prepare('SELECT COUNT(*) as n FROM characters').get().n,
+    accounts:       db.prepare('SELECT COUNT(*) as n FROM accounts').get().n,
+    characters:     db.prepare('SELECT COUNT(*) as n FROM characters').get().n,
   });
 });
 

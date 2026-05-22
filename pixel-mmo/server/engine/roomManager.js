@@ -13,6 +13,7 @@ import { getDb } from '../db/database.js';
 import { v4 as uuidv4 } from 'uuid';
 import { loadRoomItems, unloadRoomItems, getItemsInRoom } from './itemManager.js';
 import { trackMove, trackLeave, getPlayersInRoom, getRoomPlayerCount } from './playerManager.js';
+import { getNpcsInRoom } from './npcManager.js';
 import { GM, send, broadcast, broadcastExcept, roomKey } from '../socket/gmcp.js';
 
 export const OPPOSITE_DIR = {
@@ -127,6 +128,8 @@ export function sendRoomInfo(socket, roomId) {
   const players = getPlayersInRoom(roomId);
   const items = getItemsInRoom(roomId);
 
+  const npcs = getNpcsInRoom(roomId);
+
   send(socket, GM.ROOM_INFO, {
     id: room.id,
     name: room.name,
@@ -143,6 +146,7 @@ export function sendRoomInfo(socket, roomId) {
       locked: !!x.is_locked,
     })),
     players,
+    npcs: npcs.map(n => ({ id: n.id, name: n.name, title: n.title, race: n.race, role: n.role })),
     items: items.map(itemPacket),
   });
 }

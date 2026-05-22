@@ -223,6 +223,19 @@
         <div class="race-btn" data-race="horkval">Horkval</div>
         <div class="race-btn" data-race="siren">Siren</div>
       </div>
+      <label>Class</label>
+      <div class="race-grid" id="classGrid">
+        <div class="race-btn active" data-class="adventurer">Adventurer</div>
+        <div class="race-btn" data-class="magi">Magi</div>
+        <div class="race-btn" data-class="monk">Monk</div>
+        <div class="race-btn" data-class="paladin">Paladin</div>
+        <div class="race-btn" data-class="serpentlord">Serpentlord</div>
+        <div class="race-btn" data-class="occultist">Occultist</div>
+        <div class="race-btn" data-class="bard">Bard</div>
+        <div class="race-btn" data-class="blademaster">Blademaster</div>
+        <div class="race-btn" data-class="druid">Druid</div>
+        <div class="race-btn" data-class="priest">Priest</div>
+      </div>
       <button class="btn btn-success" onclick="doCreateChar()" style="margin-top:1rem">CREATE</button>
     </div>
     <p class="err-msg" id="charErr"></p>
@@ -239,6 +252,7 @@
     <div class="bar-group bar-mp"><span class="bar-label">MP</span><div class="bar"><div class="bar-fill" id="mpBar" style="width:100%"></div></div><span class="bar-val" id="mpVal">100/100</span></div>
     <div class="bar-group bar-ep"><span class="bar-label">EP</span><div class="bar"><div class="bar-fill" id="epBar" style="width:100%"></div></div><span class="bar-val" id="epVal">100/100</span></div>
     <div id="roleTag" style="display:none">ADMIN</div>
+    <div id="statsDisplay" style="display:none;font-size:10px;color:var(--muted);margin-left:.5rem;cursor:default" title="Character stats"></div>
   </div>
 
   <!-- Play area -->
@@ -257,7 +271,7 @@
         <div id="exitBtns"></div>
       </div>
       <div id="cmdBar">
-        <input id="cmdInput" type="text" placeholder="say hello  |  tell Name msg  |  yell text  |  get id  |  drop id  |  inv  |  look" maxlength="500" />
+        <input id="cmdInput" type="text" placeholder="say hello  |  tell Name msg  |  talk npc_id  |  get id  |  inv  |  look" maxlength="500" />
         <button id="cmdSend" onclick="submitCommand()">SEND</button>
       </div>
     </div>
@@ -266,12 +280,16 @@
     <div id="sidePanel">
       <div class="side-tabs">
         <div class="side-tab active" onclick="sideTab('players')">Players</div>
+        <div class="side-tab" onclick="sideTab('npcs')">NPCs</div>
         <div class="side-tab" onclick="sideTab('ground')">Ground</div>
         <div class="side-tab" onclick="sideTab('inv')">Inv</div>
       </div>
 
       <div class="side-content active" id="scPlayers">
         <ul class="side-list" id="playerList"><li class="empty-msg">none</li></ul>
+      </div>
+      <div class="side-content" id="scNpcs">
+        <ul class="side-list" id="npcList"><li class="empty-msg">none</li></ul>
       </div>
       <div class="side-content" id="scGround">
         <ul class="side-list" id="itemList"><li class="empty-msg">none</li></ul>
@@ -287,6 +305,7 @@
       <div class="admin-tabs">
         <div class="admin-tab active" onclick="adminTab('room')">Room</div>
         <div class="admin-tab" onclick="adminTab('items')">Items</div>
+        <div class="admin-tab" onclick="adminTab('npcs')">NPCs</div>
         <div class="admin-tab" onclick="adminTab('ai')">AI</div>
       </div>
 
@@ -341,17 +360,59 @@
       </div>
 
       <div class="admin-content" id="acItems">
-        <div class="af"><label>Template ID</label><input type="text" id="placeTemplateId" /></div>
-        <div class="arow">
-          <div class="af"><label><input type="checkbox" id="placePersistent" /> Persistent</label></div>
-          <div class="af"><label>Duration (sec)</label><input type="number" id="placeDuration" /></div>
-        </div>
-        <div class="af"><label>Stack</label><input type="number" id="placeStack" value="1" min="1" /></div>
-        <button class="abtn" onclick="adminPlaceItem()">+ PLACE</button>
-        <hr style="border-color:var(--border);margin:.6rem 0" />
-        <div class="af"><label>Remove item ID</label>
-          <div style="display:flex;gap:.35rem"><input type="text" id="removeItemId" style="flex:1" /><button class="abtn danger" style="width:auto;margin-top:0" onclick="adminRemoveItem()">✕</button></div>
-        </div>
+        <details open><summary>Place item in room</summary>
+          <div class="af"><label>Template ID</label><input type="text" id="placeTemplateId" /></div>
+          <div class="arow">
+            <div class="af"><label><input type="checkbox" id="placePersistent" /> Persistent</label></div>
+            <div class="af"><label>Duration (sec)</label><input type="number" id="placeDuration" /></div>
+          </div>
+          <div class="af"><label>Stack</label><input type="number" id="placeStack" value="1" min="1" /></div>
+          <button class="abtn" onclick="adminPlaceItem()">+ PLACE</button>
+        </details>
+        <details><summary>Remove item</summary>
+          <div class="af"><label>Item ID</label>
+            <div style="display:flex;gap:.35rem"><input type="text" id="removeItemId" style="flex:1" /><button class="abtn danger" style="width:auto;margin-top:0" onclick="adminRemoveItem()">✕</button></div>
+          </div>
+        </details>
+        <details><summary>Create item template</summary>
+          <div class="af"><label>Name</label><input type="text" id="tmplName" /></div>
+          <div class="arow">
+            <div class="af"><label>Type</label><select id="tmplType"><option>weapon</option><option>armor</option><option>consumable</option><option>misc</option><option>key</option><option>currency</option><option>material</option></select></div>
+            <div class="af"><label>Weight</label><input type="number" id="tmplWeight" value="1" min="0" step="0.1" /></div>
+          </div>
+          <div class="af"><label>Description</label><textarea id="tmplDesc" rows="2"></textarea></div>
+          <div class="arow">
+            <div class="af"><label><input type="checkbox" id="tmplStackable" /> Stackable</label></div>
+            <div class="af"><label>Max stack</label><input type="number" id="tmplMaxStack" value="1" min="1" /></div>
+          </div>
+          <div class="af"><label>Attributes (JSON)</label><textarea id="tmplAttrs" rows="3" placeholder='{"damage":"1d6"}'></textarea></div>
+          <button class="abtn" onclick="adminCreateTemplate()">✦ CREATE TEMPLATE</button>
+          <div id="tmplResult" style="font-size:10px;color:var(--success);margin-top:.3rem"></div>
+        </details>
+      </div>
+
+      <div class="admin-content" id="acNpcs">
+        <details open><summary>Place NPC</summary>
+          <div class="af"><label>Name</label><input type="text" id="npcName" /></div>
+          <div class="af"><label>Title</label><input type="text" id="npcTitle" placeholder="the innkeeper" /></div>
+          <div class="arow">
+            <div class="af"><label>Race</label><select id="npcRace"><option>human</option><option>dwarf</option><option>atavian</option><option>rajamalan</option><option>xoran</option><option>grook</option><option>mhun</option><option>troll</option><option>horkval</option><option>siren</option></select></div>
+            <div class="af"><label>Role</label><input type="text" id="npcRole" value="citizen" /></div>
+          </div>
+          <div class="af"><label>Description</label><textarea id="npcDesc" rows="2"></textarea></div>
+          <div class="af"><label>Dialogue (JSON array)</label><textarea id="npcDialogue" rows="3" placeholder='[{"keywords":["hello"],"response":"Greetings, traveller."}]'></textarea></div>
+          <button class="abtn" onclick="adminNpcPlace()">+ PLACE NPC</button>
+        </details>
+        <details><summary>Remove NPC</summary>
+          <div class="af"><label>NPC ID</label>
+            <div style="display:flex;gap:.35rem"><input type="text" id="removeNpcId" style="flex:1" /><button class="abtn danger" style="width:auto;margin-top:0" onclick="adminNpcRemove()">✕</button></div>
+          </div>
+        </details>
+        <details><summary>Edit dialogue</summary>
+          <div class="af"><label>NPC ID</label><input type="text" id="dialogueNpcId" /></div>
+          <div class="af"><label>Dialogue (JSON array)</label><textarea id="dialogueJson" rows="4" placeholder='[{"keywords":["hello"],"response":"Hi there."}]'></textarea></div>
+          <button class="abtn" onclick="adminNpcDialogue()">✎ UPDATE DIALOGUE</button>
+        </details>
       </div>
 
       <div class="admin-content" id="acAI">
@@ -388,6 +449,9 @@ let groundItems = new Map();
 let inventory = new Map();
 let isAdmin = false;
 let selectedRace = 'human';
+let selectedClass = 'adventurer';
+let npcs = new Map();
+let charStats = {};
 let phaserGame = null;
 let gameScene = null;
 
@@ -453,17 +517,23 @@ function toggleCreateChar() {
   const f = document.getElementById('createCharForm');
   f.style.display = f.style.display === 'none' ? 'block' : 'none';
 }
-document.querySelectorAll('.race-btn').forEach(b => b.addEventListener('click', () => {
-  document.querySelectorAll('.race-btn').forEach(r => r.classList.remove('active'));
+document.querySelectorAll('#raceGrid .race-btn').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('#raceGrid .race-btn').forEach(r => r.classList.remove('active'));
   b.classList.add('active'); selectedRace = b.dataset.race;
 }));
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('#classGrid .race-btn').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('#classGrid .race-btn').forEach(r => r.classList.remove('active'));
+    b.classList.add('active'); selectedClass = b.dataset.class;
+  }));
+});
 
 async function doCreateChar() {
   const name = document.getElementById('newCharName').value.trim();
   document.getElementById('charErr').textContent = '';
   if (!name) { document.getElementById('charErr').textContent = 'Name required.'; return; }
   try {
-    const c = await apiFetch('/api/auth/characters', { method:'POST', body:{ name, race: selectedRace } });
+    const c = await apiFetch('/api/auth/characters', { method:'POST', body:{ name, race: selectedRace, class: selectedClass } });
     playAs(c.id);
   } catch(e) { document.getElementById('charErr').textContent = e.message; }
 }
@@ -621,11 +691,14 @@ function handleGMCP(module, data) {
       currentRoom = data;
       players.clear();
       groundItems.clear();
+      npcs.clear();
       (data.players||[]).forEach(p => players.set(p.name, p));
       (data.items||[]).forEach(i => groundItems.set(i.id, i));
+      (data.npcs||[]).forEach(n => npcs.set(n.id, n));
       renderRoom(data);
       renderPlayerList();
       renderGroundList();
+      renderNpcList();
       gameScene?.updateRoom(data);
       gameScene?.setPlayerList([...players.values()], selfName);
       if (isAdmin) adminLook();
@@ -651,12 +724,28 @@ function handleGMCP(module, data) {
       renderGroundList();
       break;
 
+    case 'Room.Npcs':
+      (data.added||[]).forEach(n => npcs.set(n.id, n));
+      (data.removed||[]).forEach(id => npcs.delete(id));
+      renderNpcList();
+      break;
+
     case 'Char.Status':
       selfName = data.name;
-      document.getElementById('charName').textContent = `${data.name} [${data.race} ${data.class}]`;
+      document.getElementById('charName').textContent = `${data.name} [${data.race} ${data.class} Lv.${data.level}]`;
       isAdmin = ['admin','developer'].includes(data.role);
       document.getElementById('roleTag').style.display   = isAdmin ? '' : 'none';
       document.getElementById('adminPanel').style.display = isAdmin ? '' : 'none';
+      if (data.stats) {
+        charStats = data.stats;
+        const s = data.stats;
+        const el = document.getElementById('statsDisplay');
+        el.style.display = '';
+        el.title = `STR ${s.str}  DEX ${s.dex}  CON ${s.con}  INT ${s.int}  WIS ${s.wis}`;
+        el.textContent = `STR${s.str} DEX${s.dex} CON${s.con} INT${s.int} WIS${s.wis}`;
+      }
+      if (data.lore?.race) log(`[Race] ${data.lore.race}`, 'sys');
+      if (data.lore?.class) log(`[Class] ${data.lore.class}`, 'sys');
       break;
 
     case 'Char.Vitals':
@@ -708,6 +797,10 @@ function handleGMCP(module, data) {
         el.innerHTML = `<pre>${attrs}</pre>`;
         document.getElementById('logArea').appendChild(el);
         document.getElementById('logArea').scrollTop = 9e9;
+      } else if (data.type === 'examine_npc') {
+        const n = data.npc;
+        log(`${n.name}${n.title?`, ${n.title}`:''} [${n.race}]`, 'sys');
+        log(n.description || 'An unremarkable figure.', 'sys');
       } else {
         log(data.text, 'sys');
       }
@@ -754,6 +847,22 @@ function renderGroundList() {
     <li style="cursor:pointer" onclick="clickGroundItem('${i.id}','${escapeHtml(i.name)}')">
       <div class="iname">${i.name}</div>
       <div class="iinfo">${i.type}${i.stackCount>1?` ×${i.stackCount}`:''}${i.persistent?' [fixed]':''}</div>
+    </li>`).join('');
+}
+
+function renderNpcList() {
+  const list = document.getElementById('npcList');
+  if (!npcs.size) { list.innerHTML='<li class="empty-msg">none</li>'; return; }
+  list.innerHTML = [...npcs.values()].map(n => `
+    <li>
+      <div class="pname" style="cursor:pointer" onclick="clickNpc('${n.id}','${escapeHtml(n.name)}')">
+        ${n.name}${n.title?` <span style="color:var(--muted)">${escapeHtml(n.title)}</span>`:''}
+      </div>
+      <div class="pinfo">${n.race||''}${n.role?` · ${n.role}`:''}</div>
+      <div style="display:flex;gap:.3rem;margin-top:.2rem">
+        <button onclick="socket?.emit('npc:talk',{npc_id:'${n.id}',message:'hello'})" style="font-size:10px;background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:1px 5px;cursor:pointer;border-radius:2px">talk</button>
+        <button onclick="socket?.emit('npc:examine',{npc_id:'${n.id}'})" style="font-size:10px;background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:1px 5px;cursor:pointer;border-radius:2px">look</button>
+      </div>
     </li>`).join('');
 }
 
@@ -832,6 +941,16 @@ function parseCommand(raw) {
       if (!arg) return;
       socket?.emit('item:examine', { item_id: arg });
       break;
+    case 'talk': {
+      const [npcId, ...talkMsg] = rest;
+      if (!npcId) { log('Usage: talk <npc_id> [message]','err'); return; }
+      socket?.emit('npc:talk', { npc_id: npcId, message: talkMsg.join(' ') || 'hello' });
+      break;
+    }
+    case 'look_npc': case 'lnpc':
+      if (!arg) { log('Usage: look_npc <npc_id>','err'); return; }
+      socket?.emit('npc:examine', { npc_id: arg });
+      break;
     case 'n': case 's': case 'e': case 'w':
     case 'ne': case 'nw': case 'se': case 'sw':
     case 'u': case 'd': case 'in': case 'out':
@@ -844,7 +963,7 @@ function parseCommand(raw) {
     case 'up':    move('u'); break;
     case 'down':  move('d'); break;
     default:
-      log(`Unknown command: ${cmd}. Try: say, tell, yell, emote, look, inv, get, drop, examine, n/s/e/w`, 'err');
+      log(`Unknown command: ${cmd}. Try: say, tell, yell, emote, look, inv, get, drop, examine, talk, n/s/e/w`, 'err');
   }
 }
 
@@ -866,6 +985,11 @@ function clickGroundItem(id, name) {
 function clickInvItem(id, name) {
   socket?.emit('item:drop', { item_id: id });
 }
+function clickNpc(id, name) {
+  sideTab('npcs');
+  document.getElementById('removeNpcId').value = id;
+  document.getElementById('dialogueNpcId').value = id;
+}
 
 // ═══════════════════════════════════════════════════
 // Log
@@ -884,7 +1008,7 @@ function log(text, type='') {
 // Side panel tabs
 // ═══════════════════════════════════════════════════
 function sideTab(tab) {
-  const tabs = ['players','ground','inv'];
+  const tabs = ['players','npcs','ground','inv'];
   document.querySelectorAll('.side-tab').forEach((t,i) => t.classList.toggle('active', tabs[i]===tab));
   document.querySelectorAll('.side-content').forEach((c,i) => c.classList.toggle('active', tabs[i]===tab));
 }
@@ -893,7 +1017,7 @@ function sideTab(tab) {
 // Admin
 // ═══════════════════════════════════════════════════
 function adminTab(tab) {
-  const tabs=['room','items','ai'];
+  const tabs=['room','items','npcs','ai'];
   document.querySelectorAll('.admin-tab').forEach((t,i) => t.classList.toggle('active', tabs[i]===tab));
   document.querySelectorAll('.admin-content').forEach((c,i) => c.classList.toggle('active', tabs[i]===tab));
 }
@@ -980,6 +1104,62 @@ function handleAIDraft(data) {
 }
 function adminAICommit() { socket?.emit('admin:ai:commit'); }
 function adminAIDiscard() { document.getElementById('aiDraftPreview').style.display='none'; socket?.emit('admin:ai:discard'); }
+
+function adminNpcPlace() {
+  const name = document.getElementById('npcName').value.trim();
+  if (!name) { log('NPC name required','err'); return; }
+  let dialogue = [];
+  const raw = document.getElementById('npcDialogue').value.trim();
+  if (raw) {
+    try { dialogue = JSON.parse(raw); } catch { log('Dialogue must be valid JSON','err'); return; }
+  }
+  socket?.emit('admin:npc:place', {
+    name,
+    title: document.getElementById('npcTitle').value.trim() || null,
+    race: document.getElementById('npcRace').value,
+    role: document.getElementById('npcRole').value.trim() || 'citizen',
+    description: document.getElementById('npcDesc').value.trim() || null,
+    dialogue,
+  });
+}
+function adminNpcRemove() {
+  const id = document.getElementById('removeNpcId').value.trim();
+  if (!id) return;
+  if (!confirm('Remove NPC?')) return;
+  socket?.emit('admin:npc:remove', { npc_id: id });
+}
+function adminNpcDialogue() {
+  const id = document.getElementById('dialogueNpcId').value.trim();
+  const raw = document.getElementById('dialogueJson').value.trim();
+  if (!id || !raw) { log('NPC ID and dialogue required','err'); return; }
+  let dialogue;
+  try { dialogue = JSON.parse(raw); } catch { log('Dialogue must be valid JSON','err'); return; }
+  socket?.emit('admin:npc:dialogue', { npc_id: id, dialogue });
+}
+
+async function adminCreateTemplate() {
+  const name = document.getElementById('tmplName').value.trim();
+  const type = document.getElementById('tmplType').value;
+  if (!name) { log('Template name required','err'); return; }
+  let attributes = {};
+  const raw = document.getElementById('tmplAttrs').value.trim();
+  if (raw) {
+    try { attributes = JSON.parse(raw); } catch { log('Attributes must be valid JSON','err'); return; }
+  }
+  try {
+    const t = await apiFetch('/api/world/item-templates', { method:'POST', body:{
+      name, type,
+      description: document.getElementById('tmplDesc').value.trim() || null,
+      weight: Number(document.getElementById('tmplWeight').value) || 1,
+      is_stackable: document.getElementById('tmplStackable').checked,
+      max_stack: Number(document.getElementById('tmplMaxStack').value) || 1,
+      attributes,
+    }});
+    const el = document.getElementById('tmplResult');
+    el.textContent = `Created: ${t.name} [${t.id.slice(0,8)}]`;
+    document.getElementById('placeTemplateId').value = t.id;
+  } catch(e) { log(`Template error: ${e.message}`,'err'); }
+}
 
 // ═══════════════════════════════════════════════════
 // Utilities

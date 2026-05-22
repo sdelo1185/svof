@@ -153,6 +153,24 @@ CREATE TABLE IF NOT EXISTS characters (
 );
 
 -- ================================================================
+-- NPCs
+-- ================================================================
+CREATE TABLE IF NOT EXISTS npcs (
+  id TEXT PRIMARY KEY,
+  room_id TEXT NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  title TEXT,
+  description TEXT,
+  race TEXT NOT NULL DEFAULT 'human',
+  role TEXT NOT NULL DEFAULT 'citizen',
+  dialogue TEXT NOT NULL DEFAULT '[]',  -- JSON array of {keywords[], response}
+  is_active INTEGER NOT NULL DEFAULT 1,
+  created_by TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_npcs_room ON npcs(room_id, is_active);
+
+-- ================================================================
 -- ADMIN AUDIT LOG
 -- ================================================================
 CREATE TABLE IF NOT EXISTS admin_actions (

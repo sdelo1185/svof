@@ -8,7 +8,9 @@ import { registerMovementHandlers } from './handlers/movement.js';
 import { registerAdminHandlers, setIO as adminSetIO } from './handlers/admin.js';
 import { registerCommunicationHandlers } from './handlers/communication.js';
 import { registerInventoryHandlers, sendInventory, setIO as invSetIO } from './handlers/inventory.js';
+import { registerNpcHandlers, setIO as npcSetIO } from './handlers/npc.js';
 import { broadcast, GM, send, err } from './gmcp.js';
+import { RACE_STATS, CLASS_STATS } from '../engine/raceStats.js';
 
 export function createSocketServer(httpServer) {
   const io = new Server(httpServer, {
@@ -19,6 +21,7 @@ export function createSocketServer(httpServer) {
 
   adminSetIO(io);
   invSetIO(io);
+  npcSetIO(io);
 
   io.use(socketAuth);
 
@@ -49,13 +52,24 @@ export function createSocketServer(httpServer) {
 
       const session = trackJoin(socket.id, character, account);
 
+      const raceData  = RACE_STATS[character.race]  ?? RACE_STATS.human;
+      const classData = CLASS_STATS[character.class] ?? CLASS_STATS.adventurer;
       send(socket, GM.CHAR_STATUS, {
-        id: character.id,
-        name: character.name,
-        race: character.race,
+        id:    character.id,
+        name:  character.name,
+        race:  character.race,
         class: character.class,
         level: character.level,
-        role: account.role,
+        role:  account.role,
+        gold:  character.gold,
+        stats: {
+          str: 10 + raceData.str,
+          dex: 10 + raceData.dex,
+          con: 10 + raceData.con,
+          int: 10 + raceData.int,
+          wis: 10 + raceData.wis,
+        },
+        lore: { race: raceData.lore, class: classData.lore },
       });
       send(socket, GM.CHAR_VITALS, {
         hp: character.health,    maxhp: character.max_health,
@@ -79,6 +93,7 @@ export function createSocketServer(httpServer) {
     registerMovementHandlers(io, socket);
     registerCommunicationHandlers(io, socket);
     registerInventoryHandlers(io, socket);
+    registerNpcHandlers(io, socket);
 
     if (['admin', 'developer'].includes(account.role)) {
       registerAdminHandlers(io, socket);
