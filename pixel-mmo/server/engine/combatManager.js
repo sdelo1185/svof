@@ -62,6 +62,14 @@ export function getNpcCurrentHp(npcId, maxHealth) {
   return npcHealth.has(npcId) ? npcHealth.get(npcId) : maxHealth;
 }
 
+export function setNpcHp(npcId, hp) {
+  npcHealth.set(npcId, hp);
+}
+
+export function handleNpcDeathExternal(io, socket, session, npc, db) {
+  _handleNpcDeath(io, socket, session, npc, db);
+}
+
 // ─── Damage formulas ──────────────────────────────────────────────────────────
 
 function _calcPlayerAttack(session, db) {

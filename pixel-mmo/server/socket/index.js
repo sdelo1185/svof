@@ -10,6 +10,7 @@ import { registerCommunicationHandlers } from './handlers/communication.js';
 import { registerInventoryHandlers, sendInventory, setIO as invSetIO } from './handlers/inventory.js';
 import { registerNpcHandlers, setIO as npcSetIO } from './handlers/npc.js';
 import { registerCombatHandlers } from './handlers/combat.js';
+import { registerSkillHandlers }  from './handlers/skills.js';
 import { setIO as combatSetIO } from '../engine/combatManager.js';
 import { broadcast, GM, send, err } from './gmcp.js';
 import { RACE_STATS, CLASS_STATS } from '../engine/raceStats.js';
@@ -98,6 +99,7 @@ export function createSocketServer(httpServer) {
     registerInventoryHandlers(io, socket);
     registerNpcHandlers(io, socket);
     registerCombatHandlers(io, socket);
+    registerSkillHandlers(io, socket);
 
     if (['admin', 'developer'].includes(account.role)) {
       registerAdminHandlers(io, socket);

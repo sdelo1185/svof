@@ -350,6 +350,12 @@
             <div class="equip-slot"><div class="equip-slot-name">Neck</div><div class="equip-slot-item equip-slot-empty" id="eq-neck">—</div></div>
           </div>
           <button onclick="socket?.emit('equipment')" style="width:100%;margin-top:.5rem;background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:.3rem;cursor:pointer;font-size:11px;border-radius:2px">↺ Refresh</button>
+          <hr style="border-color:var(--border);margin:.5rem 0">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.25rem">
+            <span style="font-size:10px;color:var(--muted)">SKILLS</span>
+            <button onclick="socket?.emit('skills')" style="background:none;border:none;color:var(--accent);font-size:10px;cursor:pointer">↺</button>
+          </div>
+          <div id="skillList" style="font-size:11px;color:var(--dim);font-style:italic">Type 'skills' to load.</div>
         </div>
       </div>
     </div>
@@ -884,8 +890,8 @@ function handleGMCP(module, data) {
       charLevel = data.level;
       if (data.lore?.race) log(`[Race] ${data.lore.race}`, 'sys');
       if (data.lore?.class) log(`[Class] ${data.lore.class}`, 'sys');
-      // Request equipment state on play
-      setTimeout(() => socket?.emit('equipment'), 500);
+      // Request equipment and skills on play
+      setTimeout(() => { socket?.emit('equipment'); socket?.emit('skills'); }, 500);
       break;
 
     case 'Char.Vitals':
@@ -949,6 +955,9 @@ function handleGMCP(module, data) {
       equipment = {};
       (data.slots||[]).forEach(s => { equipment[s.slot] = s; });
       renderEquipment();
+      break;
+    case 'Char.Skills':
+      renderSkillList(data.class, data.skills);
       break;
 
     case 'Comm.Say':
@@ -1056,6 +1065,21 @@ function renderNpcList() {
       </div>
     </li>`;
   }).join('');
+}
+
+function renderSkillList(cls, skills) {
+  const el = document.getElementById('skillList');
+  if (!el) return;
+  if (!skills?.length) { el.innerHTML = '<span style="color:var(--dim)">No skills found.</span>'; return; }
+  el.innerHTML = skills.map(s => `
+    <div style="background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:.3rem .4rem;margin-bottom:.25rem">
+      <div style="display:flex;justify-content:space-between">
+        <span style="color:var(--accent2);font-size:10px">${escapeHtml(s.name)}</span>
+        <span style="font-size:9px;color:var(--dim)">${s.mpCost>0?`${s.mpCost}MP `:''}${s.epCost>0?`${s.epCost}EP `:''}${s.cooldownSec}s cd</span>
+      </div>
+      <div style="font-size:10px;color:var(--muted);margin-top:.15rem">${escapeHtml(s.description)}</div>
+      <button onclick="socket?.emit('use',{skill_id:'${s.id}'})" style="font-size:9px;margin-top:.2rem;background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:1px 6px;cursor:pointer;border-radius:2px">use</button>
+    </div>`).join('');
 }
 
 function _updateNpcHpBar(npcName, currentHp, maxHp) {
@@ -1192,6 +1216,16 @@ function parseCommand(raw) {
       break;
     case 'equipment': case 'worn':
       socket?.emit('equipment');
+      sideTab('equip');
+      break;
+    case 'use': {
+      const [skillId, ...targetParts] = rest;
+      if (!skillId) { log('Usage: use <skill_id> [target_id]','err'); return; }
+      socket?.emit('use', { skill_id: skillId, target_id: targetParts[0] || null });
+      break;
+    }
+    case 'skills': case 'sk':
+      socket?.emit('skills');
       sideTab('equip');
       break;
     case 'n': case 's': case 'e': case 'w':
