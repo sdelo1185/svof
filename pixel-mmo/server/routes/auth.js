@@ -69,7 +69,12 @@ router.post('/characters', requireAuth, (req, res) => {
   }
 
   const stats    = deriveStats(race, cls);
-  const startRoom = db.prepare("SELECT id FROM rooms WHERE name = 'The Void' LIMIT 1").get();
+  // Prefer Town Square; fall back to any safe city room; finally The Void
+  const startRoom = db.prepare(
+    "SELECT id FROM rooms WHERE name = 'Town Square of Taroth' LIMIT 1"
+  ).get()
+    ?? db.prepare("SELECT id FROM rooms WHERE safe_zone = 1 AND terrain_type = 'city' LIMIT 1").get()
+    ?? db.prepare("SELECT id FROM rooms WHERE name = 'The Void' LIMIT 1").get();
   const id       = uuidv4();
   const now      = Date.now();
 

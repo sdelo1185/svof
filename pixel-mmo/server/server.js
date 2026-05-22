@@ -10,6 +10,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { getDb } from './db/database.js';
 import { createSocketServer } from './socket/index.js';
 import { ensureVoidRoom } from './engine/roomManager.js';
+import { seedWorld } from './db/seed.js';
 
 import worldbuildingRouter from './routes/worldbuilding.js';
 import adminRouter from './routes/admin.js';
@@ -64,8 +65,9 @@ async function bootstrap() {
     console.log(`[boot] Admin account created: ${adminUsername}`);
   }
 
-  // Seed void room if world is empty
+  // Seed void room if world is empty, then seed starter world
   ensureVoidRoom();
+  seedWorld();
 
   httpServer.listen(PORT, () => {
     console.log(`\nPixel MMO server running on http://localhost:${PORT}`);
