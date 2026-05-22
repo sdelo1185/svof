@@ -39,6 +39,7 @@ export const GM = {
   ADMIN_ROOM:      'Admin.RoomInfo',
   ADMIN_DRAFT:     'Admin.AIDraft',
   ADMIN_AGENT:     'Admin.Agent',
+  ADMIN_NPC_DATA:  'Admin.Npc.Data',
   SERVER_MSG:      'Server.Message',
   SERVER_ERR:      'Server.Error',
 };

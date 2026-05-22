@@ -75,6 +75,29 @@ export function updateNpcImage(npcId, imageUrl) {
   }
 }
 
+export function updateNpc(npcId, fields, updatedBy) {
+  const db = getDb();
+  const allowed = ['name','title','description','race','role','is_combatant',
+                   'max_health','attack_power','armor','experience_reward',
+                   'respawn_seconds','gold_reward'];
+  const sets = [];
+  const vals = [];
+  for (const [k, v] of Object.entries(fields)) {
+    if (allowed.includes(k)) { sets.push(`${k} = ?`); vals.push(v); }
+  }
+  if (fields.dialogue !== undefined) {
+    sets.push('dialogue = ?');
+    vals.push(JSON.stringify(fields.dialogue));
+  }
+  if (sets.length === 0) return null;
+  vals.push(npcId);
+  db.prepare(`UPDATE npcs SET ${sets.join(', ')} WHERE id = ?`).run(...vals);
+  for (const [roomId, npcs] of roomNpcIndex) {
+    if (npcs.some(n => n.id === npcId)) { roomNpcIndex.delete(roomId); break; }
+  }
+  return getNpcById(npcId);
+}
+
 export function updateNpcDialogue(npcId, dialogue, updatedBy) {
   getDb().prepare('UPDATE npcs SET dialogue = ? WHERE id = ?')
     .run(JSON.stringify(dialogue), npcId);

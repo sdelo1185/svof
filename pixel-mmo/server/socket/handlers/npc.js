@@ -12,7 +12,7 @@
  */
 
 import { getSession } from '../../engine/playerManager.js';
-import { getNpcById, getNpcsInRoom, placeNpc, removeNpc, processTalk, updateNpcDialogue } from '../../engine/npcManager.js';
+import { getNpcById, getNpcsInRoom, placeNpc, removeNpc, processTalk, updateNpcDialogue, updateNpc } from '../../engine/npcManager.js';
 import { GM, send, broadcast, msg, err } from '../gmcp.js';
 
 let _io;
@@ -26,6 +26,8 @@ export function registerNpcHandlers(io, socket) {
     socket.on('admin:npc:place',    (d) => handleAdminPlace(socket, d));
     socket.on('admin:npc:remove',   (d) => handleAdminRemove(socket, d));
     socket.on('admin:npc:dialogue', (d) => handleAdminDialogue(socket, d));
+    socket.on('admin:npc:get',      (d) => handleAdminGet(socket, d));
+    socket.on('admin:npc:update',   (d) => handleAdminUpdate(socket, d));
   }
 }
 
@@ -108,4 +110,31 @@ function handleAdminDialogue(socket, data) {
   const session = getSession(socket.id);
   updateNpcDialogue(npc_id, dialogue, session?.characterId);
   msg(socket, `Dialogue updated for NPC ${npc_id.slice(0,8)}.`);
+}
+
+function handleAdminGet(socket, data) {
+  const { npc_id } = data || {};
+  if (!npc_id) return err(socket, 'npc_id required.');
+  const npc = getNpcById(npc_id);
+  if (!npc) return err(socket, 'NPC not found.');
+  send(socket, GM.ADMIN_NPC_DATA, npc);
+}
+
+function handleAdminUpdate(socket, data) {
+  const session = getSession(socket.id);
+  if (!session?.roomId) return;
+
+  const { npc_id, ...fields } = data || {};
+  if (!npc_id) return err(socket, 'npc_id required.');
+  if (!fields.name?.trim()) return err(socket, 'name required.');
+
+  const updated = updateNpc(npc_id, fields, session.characterId);
+  if (!updated) return err(socket, 'NPC not found.');
+
+  broadcast(_io, session.roomId, 'Room.Npcs', {
+    updated: [{ id: updated.id, name: updated.name, title: updated.title,
+                race: updated.race, role: updated.role,
+                is_combatant: !!updated.is_combatant, image_url: updated.image_url || null }],
+  });
+  msg(socket, `NPC "${updated.name}" updated.`);
 }
