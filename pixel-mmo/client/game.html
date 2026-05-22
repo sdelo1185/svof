@@ -5,160 +5,173 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Pixel MMO</title>
   <script src="/socket.io/socket.io.js"></script>
+  <script src="/phaser/phaser.js"></script>
   <style>
     :root {
-      --bg: #0d0f1a; --surface: #161929; --surface2: #1e2235;
-      --border: #2a3050; --border2: #3a4060;
-      --accent: #7c6af7; --accent2: #f7a26a; --accent3: #6af7c8;
-      --text: #d4d8f0; --muted: #6b7099; --dim: #4a5070;
-      --hp: #e05050; --mp: #5080e0; --ep: #50c060;
-      --success: #4caf80; --warn: #f7c86a; --danger: #f76a6a;
-      --pixel: 'Press Start 2P', monospace;
-      --mono: 'Share Tech Mono', monospace;
+      --bg:#0d0f1a; --surface:#161929; --surface2:#1e2235;
+      --border:#2a3050; --border2:#3a4060;
+      --accent:#7c6af7; --accent2:#f7a26a; --accent3:#6af7c8;
+      --text:#d4d8f0; --muted:#6b7099; --dim:#4a5070;
+      --hp:#e05050; --mp:#5080e0; --ep:#50c060;
+      --success:#4caf80; --warn:#f7c86a; --danger:#f76a6a;
+      --pixel:'Press Start 2P',monospace; --mono:'Share Tech Mono',monospace;
     }
     @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Share+Tech+Mono&display=swap');
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13px;height:100vh;overflow:hidden;display:flex;flex-direction:column;}
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: var(--bg); color: var(--text); font-family: var(--mono); font-size: 13px; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+    /* ── Screens ── */
+    .screen{display:none;flex:1;flex-direction:column;}
+    .screen.active{display:flex;}
 
-    /* ── Screens ───────────────────────────────────────────────────── */
-    .screen { display: none; flex: 1; flex-direction: column; }
-    .screen.active { display: flex; }
+    /* ── Auth ── */
+    #authScreen{align-items:center;justify-content:center;}
+    .auth-box{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:2.5rem;width:340px;}
+    .auth-box h1{font-family:var(--pixel);font-size:10px;color:var(--accent);text-align:center;margin-bottom:.4rem;letter-spacing:2px;}
+    .subtitle{font-size:11px;color:var(--muted);text-align:center;margin-bottom:1.8rem;}
+    .auth-tabs{display:flex;margin-bottom:1.5rem;border-bottom:1px solid var(--border);}
+    .auth-tab{flex:1;padding:.5rem;text-align:center;cursor:pointer;color:var(--muted);font-size:11px;border-bottom:2px solid transparent;}
+    .auth-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+    label{display:block;color:var(--muted);font-size:11px;margin-bottom:.3rem;margin-top:1rem;}
+    input[type=text],input[type=password],input[type=email],input[type=number],select,textarea{
+      width:100%;background:var(--bg);border:1px solid var(--border);border-radius:3px;
+      color:var(--text);padding:.55rem .7rem;font-family:var(--mono);font-size:13px;outline:none;}
+    input:focus,select:focus,textarea:focus{border-color:var(--accent);}
+    .btn{display:inline-block;padding:.6rem 1.2rem;border:none;border-radius:3px;cursor:pointer;
+         font-family:var(--pixel);font-size:8px;letter-spacing:1px;width:100%;margin-top:1.2rem;}
+    .btn:disabled{opacity:.4;cursor:not-allowed;}
+    .btn-primary{background:var(--accent);color:#fff;}
+    .btn-success{background:var(--success);color:#fff;}
+    .btn-danger{background:var(--danger);color:#fff;}
+    .btn-muted{background:var(--border);color:var(--text);}
+    .err-msg{margin-top:.75rem;color:var(--danger);font-size:11px;text-align:center;min-height:1em;}
 
-    /* ── Auth screen ──────────────────────────────────────────────── */
-    #authScreen { align-items: center; justify-content: center; }
-    .auth-box { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 2.5rem; width: 340px; }
-    .auth-box h1 { font-family: var(--pixel); font-size: 10px; color: var(--accent); text-align: center; margin-bottom: 0.4rem; letter-spacing: 2px; }
-    .auth-box .subtitle { font-size: 11px; color: var(--muted); text-align: center; margin-bottom: 1.8rem; }
-    .auth-tabs { display: flex; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); }
-    .auth-tab { flex: 1; padding: 0.5rem; text-align: center; cursor: pointer; color: var(--muted); font-size: 11px; border-bottom: 2px solid transparent; }
-    .auth-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
-    label { display: block; color: var(--muted); font-size: 11px; margin-bottom: 0.3rem; margin-top: 1rem; }
-    input[type=text], input[type=password], input[type=email], select, textarea {
-      width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 3px;
-      color: var(--text); padding: 0.55rem 0.7rem;
-      font-family: var(--mono); font-size: 13px; outline: none;
-    }
-    input:focus, select:focus, textarea:focus { border-color: var(--accent); }
-    .btn { display: inline-block; padding: 0.6rem 1.2rem; border: none; border-radius: 3px; cursor: pointer; font-family: var(--pixel); font-size: 8px; letter-spacing: 1px; transition: opacity .15s; width: 100%; margin-top: 1.2rem; }
-    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
-    .btn-primary { background: var(--accent); color: #fff; }
-    .btn-success { background: var(--success); color: #fff; }
-    .btn-danger  { background: var(--danger);  color: #fff; }
-    .btn-muted   { background: var(--border);  color: var(--text); }
-    .err-msg { margin-top: 0.75rem; color: var(--danger); font-size: 11px; text-align: center; min-height: 1em; }
+    /* ── Char select ── */
+    #charScreen{align-items:center;justify-content:center;}
+    .char-box{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:2rem;width:420px;max-height:90vh;overflow-y:auto;}
+    .char-box h2{font-family:var(--pixel);font-size:10px;color:var(--accent2);margin-bottom:1.5rem;}
+    .char-list{display:flex;flex-direction:column;gap:.5rem;margin-bottom:1.25rem;}
+    .char-card{background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:.75rem 1rem;
+               cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:border-color .15s;}
+    .char-card:hover{border-color:var(--accent);}
+    .cname{font-family:var(--pixel);font-size:9px;color:var(--text);}
+    .cinfo{font-size:11px;color:var(--muted);}
+    .char-divider{border:none;border-top:1px solid var(--border);margin:1rem 0;}
+    .char-create-toggle{color:var(--accent);font-size:12px;cursor:pointer;display:block;text-align:center;margin-bottom:.75rem;}
+    #createCharForm{display:none;}
+    .race-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.35rem;margin-top:.4rem;}
+    .race-btn{background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:.4rem .3rem;
+              cursor:pointer;text-align:center;font-size:11px;color:var(--muted);transition:all .15s;}
+    .race-btn:hover{border-color:var(--accent);color:var(--text);}
+    .race-btn.active{border-color:var(--accent);background:#1e1f3d;color:var(--accent);}
 
-    /* ── Character select ─────────────────────────────────────────── */
-    #charScreen { align-items: center; justify-content: center; }
-    .char-box { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 2rem; width: 420px; max-height: 90vh; overflow-y: auto; }
-    .char-box h2 { font-family: var(--pixel); font-size: 10px; color: var(--accent2); margin-bottom: 1.5rem; }
-    .char-list { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.25rem; }
-    .char-card { background: var(--bg); border: 1px solid var(--border); border-radius: 3px; padding: 0.75rem 1rem; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: border-color .15s; }
-    .char-card:hover { border-color: var(--accent); }
-    .char-card .cname { font-family: var(--pixel); font-size: 9px; color: var(--text); }
-    .char-card .cinfo { font-size: 11px; color: var(--muted); }
-    .char-divider { border: none; border-top: 1px solid var(--border); margin: 1rem 0; }
-    .char-create-toggle { color: var(--accent); font-size: 12px; cursor: pointer; display: block; text-align: center; margin-bottom: 0.75rem; }
-    #createCharForm { display: none; }
-    .race-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.35rem; margin-top: 0.4rem; }
-    .race-btn { background: var(--bg); border: 1px solid var(--border); border-radius: 3px; padding: 0.4rem 0.3rem; cursor: pointer; text-align: center; font-size: 11px; color: var(--muted); transition: all .15s; }
-    .race-btn:hover { border-color: var(--accent); color: var(--text); }
-    .race-btn.active { border-color: var(--accent); background: #1e1f3d; color: var(--accent); }
+    /* ── Game screen layout ── */
+    #gameScreen{display:none;flex-direction:column;}
+    #gameScreen.active{display:flex;}
 
-    /* ── Game screen ──────────────────────────────────────────────── */
-    #gameScreen { display: none; flex-direction: column; height: 100vh; }
-    #gameScreen.active { display: flex; }
+    /* Vitals bar */
+    #vitals{background:var(--surface);border-bottom:1px solid var(--border);padding:.4rem 1rem;
+            display:flex;align-items:center;gap:1.2rem;flex-shrink:0;flex-wrap:wrap;}
+    #charName{font-family:var(--pixel);font-size:9px;color:var(--accent2);min-width:130px;}
+    .bar-group{display:flex;align-items:center;gap:.4rem;}
+    .bar-label{font-size:10px;color:var(--muted);width:20px;}
+    .bar{height:10px;width:90px;background:var(--bg);border:1px solid var(--border2);border-radius:2px;overflow:hidden;}
+    .bar-fill{height:100%;transition:width .3s;}
+    .bar-hp .bar-fill{background:var(--hp);}
+    .bar-mp .bar-fill{background:var(--mp);}
+    .bar-ep .bar-fill{background:var(--ep);}
+    .bar-val{font-size:10px;color:var(--muted);}
+    #roleTag{font-family:var(--pixel);font-size:7px;padding:2px 5px;background:var(--danger);color:#fff;border-radius:2px;margin-left:auto;}
 
-    /* Header / vitals */
-    #vitals {
-      background: var(--surface); border-bottom: 1px solid var(--border);
-      padding: 0.4rem 1rem; display: flex; align-items: center; gap: 1.5rem; flex-shrink: 0;
-    }
-    #charName { font-family: var(--pixel); font-size: 9px; color: var(--accent2); min-width: 120px; }
-    .bar-group { display: flex; align-items: center; gap: 0.4rem; }
-    .bar-label { font-size: 10px; color: var(--muted); width: 20px; }
-    .bar { height: 10px; width: 100px; background: var(--bg); border: 1px solid var(--border2); border-radius: 2px; overflow: hidden; }
-    .bar-fill { height: 100%; transition: width 0.3s; }
-    .bar-hp   .bar-fill { background: var(--hp); }
-    .bar-mp   .bar-fill { background: var(--mp); }
-    .bar-ep   .bar-fill { background: var(--ep); }
-    .bar-val { font-size: 10px; color: var(--muted); }
-    #roleTag { font-family: var(--pixel); font-size: 7px; padding: 2px 5px; background: var(--danger); color: #fff; border-radius: 2px; margin-left: auto; }
+    /* Play area */
+    #playArea{display:flex;flex:1;overflow:hidden;}
 
-    /* Main play area */
-    #playArea { display: flex; flex: 1; overflow: hidden; }
+    /* Canvas column */
+    #canvasCol{display:flex;flex-direction:column;flex:1;overflow:hidden;border-right:1px solid var(--border);}
+    #phaserMount{flex-shrink:0;position:relative;background:#000;}
+    #phaserMount canvas{display:block;}
 
-    /* Room panel */
-    #roomPanel { flex: 1; display: flex; flex-direction: column; border-right: 1px solid var(--border); overflow: hidden; }
-    #roomName { font-family: var(--pixel); font-size: 10px; color: var(--accent2); padding: 0.75rem 1rem 0.4rem; border-bottom: 1px solid var(--border); flex-shrink: 0; }
-    #roomDesc { padding: 0.75rem 1rem; color: var(--text); line-height: 1.7; font-size: 13px; flex-shrink: 0; }
-    #roomLong { padding: 0 1rem 0.75rem; color: var(--muted); line-height: 1.6; font-size: 12px; font-style: italic; flex-shrink: 0; }
-    #exitsArea { padding: 0.5rem 1rem; border-top: 1px solid var(--border); flex-shrink: 0; }
-    #exitsArea .label { font-size: 10px; color: var(--muted); margin-bottom: 0.4rem; }
-    #exitBtns { display: flex; flex-wrap: wrap; gap: 0.35rem; }
-    .exit-btn {
-      background: var(--surface2); border: 1px solid var(--border2);
-      border-radius: 3px; padding: 0.3rem 0.7rem;
-      cursor: pointer; font-family: var(--mono); font-size: 12px; color: var(--text);
-      transition: all .12s;
-    }
-    .exit-btn:hover { border-color: var(--accent); color: var(--accent); }
-    .exit-btn.door { border-color: var(--accent2); color: var(--accent2); }
-    .exit-btn.locked { border-color: var(--dim); color: var(--dim); cursor: not-allowed; }
+    /* Room text info */
+    #roomInfo{padding:.6rem 1rem .3rem;border-bottom:1px solid var(--border);flex-shrink:0;}
+    #roomName{font-family:var(--pixel);font-size:10px;color:var(--accent2);margin-bottom:.25rem;}
+    #roomDesc{font-size:12px;color:var(--muted);line-height:1.6;}
 
-    /* Log */
-    #logArea { flex: 1; overflow-y: auto; padding: 0.5rem 1rem; font-size: 12px; line-height: 1.8; }
-    .log-line { margin: 0; }
-    .log-line.sys { color: var(--muted); font-style: italic; }
-    .log-line.err { color: var(--danger); }
-    .log-line.move { color: var(--accent3); }
-    .log-line.enter { color: var(--success); }
-    .log-line.leave { color: var(--dim); }
+    /* Message log */
+    #logArea{flex:1;overflow-y:auto;padding:.5rem 1rem;font-size:12px;line-height:1.8;}
+    .log-line{margin:0;}
+    .log-line.sys{color:var(--muted);font-style:italic;}
+    .log-line.err{color:var(--danger);}
+    .log-line.move{color:var(--accent3);}
+    .log-line.enter{color:var(--success);}
+    .log-line.leave{color:var(--dim);}
+    .log-line.say{color:var(--text);}
+    .log-line.tell{color:var(--accent);}
+    .log-line.yell{color:var(--warn);}
+    .log-line.emote{color:var(--accent2);}
+    .log-line.examine pre{font-size:10px;color:var(--muted);background:var(--bg);padding:.4rem;border-radius:3px;overflow-x:auto;margin-top:.2rem;}
+
+    /* Command input */
+    #cmdBar{display:flex;border-top:1px solid var(--border);flex-shrink:0;}
+    #cmdInput{flex:1;background:var(--bg);border:none;color:var(--text);padding:.6rem .75rem;font-family:var(--mono);font-size:13px;outline:none;}
+    #cmdInput::placeholder{color:var(--dim);}
+    #cmdSend{background:var(--accent);border:none;color:#fff;padding:.6rem 1rem;cursor:pointer;font-family:var(--pixel);font-size:8px;}
+
+    /* Exits */
+    #exitsArea{padding:.4rem 1rem;border-top:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;}
+    #exitsArea .elabel{font-size:10px;color:var(--muted);margin-right:.25rem;}
+    .exit-btn{background:var(--surface2);border:1px solid var(--border2);border-radius:3px;padding:.25rem .6rem;
+              cursor:pointer;font-family:var(--mono);font-size:12px;color:var(--text);transition:all .12s;}
+    .exit-btn:hover{border-color:var(--accent);color:var(--accent);}
+    .exit-btn.door{border-color:var(--accent2);color:var(--accent2);}
+    .exit-btn.locked{border-color:var(--dim);color:var(--dim);cursor:not-allowed;}
 
     /* Side panel */
-    #sidePanel { width: 240px; display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0; }
-    .side-section { border-bottom: 1px solid var(--border); flex: 1; overflow-y: auto; }
-    .side-section h3 { font-family: var(--pixel); font-size: 8px; color: var(--muted); padding: 0.6rem 0.75rem 0.4rem; border-bottom: 1px solid var(--border); }
-    .side-list { list-style: none; padding: 0.4rem 0.75rem; }
-    .side-list li { padding: 0.25rem 0; font-size: 12px; border-bottom: 1px solid var(--border); }
-    .side-list li:last-child { border-bottom: none; }
-    .player-entry .pname { color: var(--accent); }
-    .player-entry .pinfo { font-size: 10px; color: var(--muted); }
-    .item-entry .iname { color: var(--accent2); }
-    .item-entry .iinfo { font-size: 10px; color: var(--muted); }
-    .empty-msg { color: var(--dim); font-size: 11px; font-style: italic; padding: 0.5rem 0.75rem; }
+    #sidePanel{width:220px;display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;}
+    .side-section{border-bottom:1px solid var(--border);display:flex;flex-direction:column;flex:1;overflow:hidden;}
+    .side-section h3{font-family:var(--pixel);font-size:8px;color:var(--muted);padding:.5rem .75rem .3rem;border-bottom:1px solid var(--border);flex-shrink:0;}
+    .side-list{list-style:none;overflow-y:auto;flex:1;padding:.3rem .75rem;}
+    .side-list li{padding:.2rem 0;font-size:11px;border-bottom:1px solid var(--border);}
+    .side-list li:last-child{border-bottom:none;}
+    .pname{color:var(--accent);}
+    .pinfo{font-size:10px;color:var(--muted);}
+    .iname{color:var(--accent2);}
+    .iinfo{font-size:10px;color:var(--muted);}
+    .empty-msg{color:var(--dim);font-size:11px;font-style:italic;}
 
-    /* ── Admin panel ──────────────────────────────────────────────── */
-    #adminPanel {
-      width: 280px; background: var(--surface); border-left: 2px solid var(--danger);
-      display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0;
-    }
-    #adminPanel h2 { font-family: var(--pixel); font-size: 8px; color: var(--danger); padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--border); }
-    .admin-tabs { display: flex; border-bottom: 1px solid var(--border); }
-    .admin-tab { flex: 1; padding: 0.4rem; text-align: center; cursor: pointer; font-size: 10px; color: var(--muted); border-bottom: 2px solid transparent; }
-    .admin-tab.active { color: var(--danger); border-bottom-color: var(--danger); }
-    .admin-content { flex: 1; overflow-y: auto; padding: 0.75rem; display: none; }
-    .admin-content.active { display: block; }
-    .admin-field { margin-bottom: 0.6rem; }
-    .admin-field label { font-size: 10px; color: var(--muted); display: block; margin-bottom: 0.2rem; }
-    .admin-field input, .admin-field select, .admin-field textarea { font-size: 11px; padding: 0.35rem 0.5rem; }
-    .admin-field textarea { resize: vertical; min-height: 60px; }
-    .admin-btn { width: 100%; background: var(--surface2); border: 1px solid var(--border2); border-radius: 3px; color: var(--text); padding: 0.4rem; cursor: pointer; font-family: var(--mono); font-size: 11px; margin-top: 0.4rem; text-align: left; }
-    .admin-btn:hover { border-color: var(--accent); color: var(--accent); }
-    .admin-btn.danger:hover { border-color: var(--danger); color: var(--danger); }
-    .admin-room-id { font-size: 10px; color: var(--dim); word-break: break-all; margin-bottom: 0.5rem; }
-    .admin-row { display: flex; gap: 0.4rem; }
-    .admin-row .admin-field { flex: 1; }
+    /* Side tabs */
+    .side-tabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;}
+    .side-tab{flex:1;padding:.35rem;text-align:center;cursor:pointer;font-size:10px;color:var(--muted);border-bottom:2px solid transparent;}
+    .side-tab.active{color:var(--accent2);border-bottom-color:var(--accent2);}
+    .side-content{display:none;flex:1;overflow:hidden;flex-direction:column;}
+    .side-content.active{display:flex;}
 
-    /* ── Utility ───────────────────────────────────────────────────── */
-    .spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; vertical-align: middle; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-track { background: var(--bg); } ::-webkit-scrollbar-thumb { background: var(--border2); }
+    /* ── Admin panel ── */
+    #adminPanel{width:270px;background:var(--surface);border-left:2px solid var(--danger);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;}
+    #adminPanel h2{font-family:var(--pixel);font-size:8px;color:var(--danger);padding:.5rem .75rem;border-bottom:1px solid var(--border);}
+    .admin-tabs{display:flex;border-bottom:1px solid var(--border);}
+    .admin-tab{flex:1;padding:.35rem;text-align:center;cursor:pointer;font-size:10px;color:var(--muted);border-bottom:2px solid transparent;}
+    .admin-tab.active{color:var(--danger);border-bottom-color:var(--danger);}
+    .admin-content{flex:1;overflow-y:auto;padding:.6rem;display:none;}
+    .admin-content.active{display:block;}
+    .af{margin-bottom:.5rem;}
+    .af label{font-size:10px;color:var(--muted);display:block;margin-bottom:.2rem;}
+    .af input,.af select,.af textarea{font-size:11px;padding:.3rem .45rem;}
+    .af textarea{resize:vertical;min-height:52px;}
+    .abtn{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:3px;color:var(--text);
+          padding:.35rem;cursor:pointer;font-family:var(--mono);font-size:11px;margin-top:.35rem;text-align:left;}
+    .abtn:hover{border-color:var(--accent);color:var(--accent);}
+    .abtn.danger:hover{border-color:var(--danger);color:var(--danger);}
+    .arow{display:flex;gap:.35rem;}
+    .arow .af{flex:1;}
+    #adminRoomMeta{font-size:10px;color:var(--dim);word-break:break-all;margin-bottom:.5rem;white-space:pre-line;}
+    details summary{cursor:pointer;font-size:11px;color:var(--accent2);margin:.4rem 0 .3rem;user-select:none;}
+
+    ::-webkit-scrollbar{width:4px;}::-webkit-scrollbar-track{background:var(--bg);}::-webkit-scrollbar-thumb{background:var(--border2);}
   </style>
 </head>
 <body>
 
-<!-- ══════════════════════════════════════════════════════ AUTH SCREEN -->
+<!-- ══════════════════════════ AUTH -->
 <div id="authScreen" class="screen active">
   <div class="auth-box">
     <h1>PIXEL MMO</h1>
@@ -187,7 +200,7 @@
   </div>
 </div>
 
-<!-- ══════════════════════════════════════════════════════ CHAR SCREEN -->
+<!-- ══════════════════════════ CHAR SELECT -->
 <div id="charScreen" class="screen">
   <div class="char-box">
     <h2>SELECT CHARACTER</h2>
@@ -216,56 +229,59 @@
   </div>
 </div>
 
-<!-- ══════════════════════════════════════════════════════ GAME SCREEN -->
+<!-- ══════════════════════════ GAME -->
 <div id="gameScreen" class="screen">
-  <!-- Vitals bar -->
+
+  <!-- Vitals -->
   <div id="vitals">
     <div id="charName">...</div>
-    <div class="bar-group bar-hp">
-      <span class="bar-label">HP</span>
-      <div class="bar"><div class="bar-fill" id="hpBar" style="width:100%"></div></div>
-      <span class="bar-val" id="hpVal">100/100</span>
-    </div>
-    <div class="bar-group bar-mp">
-      <span class="bar-label">MP</span>
-      <div class="bar"><div class="bar-fill" id="mpBar" style="width:100%"></div></div>
-      <span class="bar-val" id="mpVal">100/100</span>
-    </div>
-    <div class="bar-group bar-ep">
-      <span class="bar-label">EP</span>
-      <div class="bar"><div class="bar-fill" id="epBar" style="width:100%"></div></div>
-      <span class="bar-val" id="epVal">100/100</span>
-    </div>
+    <div class="bar-group bar-hp"><span class="bar-label">HP</span><div class="bar"><div class="bar-fill" id="hpBar" style="width:100%"></div></div><span class="bar-val" id="hpVal">100/100</span></div>
+    <div class="bar-group bar-mp"><span class="bar-label">MP</span><div class="bar"><div class="bar-fill" id="mpBar" style="width:100%"></div></div><span class="bar-val" id="mpVal">100/100</span></div>
+    <div class="bar-group bar-ep"><span class="bar-label">EP</span><div class="bar"><div class="bar-fill" id="epBar" style="width:100%"></div></div><span class="bar-val" id="epVal">100/100</span></div>
     <div id="roleTag" style="display:none">ADMIN</div>
   </div>
 
-  <!-- Main play area -->
+  <!-- Play area -->
   <div id="playArea">
-    <!-- Room column -->
-    <div id="roomPanel">
-      <div id="roomName">Connecting...</div>
-      <div id="roomDesc"></div>
-      <div id="roomLong"></div>
+
+    <!-- Canvas + text column -->
+    <div id="canvasCol">
+      <div id="phaserMount"></div>
+      <div id="roomInfo">
+        <div id="roomName">Connecting...</div>
+        <div id="roomDesc"></div>
+      </div>
       <div id="logArea"></div>
       <div id="exitsArea">
-        <div class="label">EXITS</div>
+        <span class="elabel">EXITS</span>
         <div id="exitBtns"></div>
       </div>
+      <div id="cmdBar">
+        <input id="cmdInput" type="text" placeholder="say hello  |  tell Name msg  |  yell text  |  get id  |  drop id  |  inv  |  look" maxlength="500" />
+        <button id="cmdSend" onclick="submitCommand()">SEND</button>
+      </div>
     </div>
 
-    <!-- Side panel: players + items -->
+    <!-- Side: players / ground / inventory tabs -->
     <div id="sidePanel">
-      <div class="side-section">
-        <h3>PLAYERS HERE</h3>
+      <div class="side-tabs">
+        <div class="side-tab active" onclick="sideTab('players')">Players</div>
+        <div class="side-tab" onclick="sideTab('ground')">Ground</div>
+        <div class="side-tab" onclick="sideTab('inv')">Inv</div>
+      </div>
+
+      <div class="side-content active" id="scPlayers">
         <ul class="side-list" id="playerList"><li class="empty-msg">none</li></ul>
       </div>
-      <div class="side-section">
-        <h3>ITEMS ON GROUND</h3>
+      <div class="side-content" id="scGround">
         <ul class="side-list" id="itemList"><li class="empty-msg">none</li></ul>
+      </div>
+      <div class="side-content" id="scInv">
+        <ul class="side-list" id="invList"><li class="empty-msg">empty</li></ul>
       </div>
     </div>
 
-    <!-- Admin panel (hidden for non-admins) -->
+    <!-- Admin panel -->
     <div id="adminPanel" style="display:none">
       <h2>⚙ ADMIN</h2>
       <div class="admin-tabs">
@@ -274,276 +290,344 @@
         <div class="admin-tab" onclick="adminTab('ai')">AI</div>
       </div>
 
-      <!-- Room tab -->
-      <div class="admin-content active" id="adminRoom">
-        <div class="admin-room-id" id="adminRoomId">Room ID: —</div>
-        <div id="adminExitList" style="font-size:11px;color:var(--muted);margin-bottom:0.75rem"></div>
+      <div class="admin-content active" id="acRoom">
+        <div id="adminRoomMeta">—</div>
 
-        <details><summary style="cursor:pointer;font-size:11px;color:var(--accent2);margin-bottom:0.4rem">Dig new room</summary>
-          <div class="admin-row">
-            <div class="admin-field"><label>Direction</label>
-              <select id="digDir"><option>n</option><option>s</option><option>e</option><option>w</option><option>ne</option><option>nw</option><option>se</option><option>sw</option><option>u</option><option>d</option><option>in</option><option>out</option></select>
-            </div>
-            <div class="admin-field"><label>Terrain</label>
-              <select id="digTerrain"><option>plains</option><option>forest</option><option>city</option><option>dungeon</option><option>cave</option><option>mountain</option><option>desert</option><option>tundra</option><option>ocean</option><option>river</option><option>ethereal</option><option>divine</option></select>
-            </div>
+        <details><summary>Dig new room</summary>
+          <div class="arow">
+            <div class="af"><label>Dir</label><select id="digDir"><option>n</option><option>s</option><option>e</option><option>w</option><option>ne</option><option>nw</option><option>se</option><option>sw</option><option>u</option><option>d</option><option>in</option><option>out</option></select></div>
+            <div class="af"><label>Terrain</label><select id="digTerrain"><option>plains</option><option>forest</option><option>city</option><option>dungeon</option><option>cave</option><option>mountain</option><option>desert</option><option>tundra</option><option>ocean</option><option>river</option><option>ethereal</option><option>divine</option></select></div>
           </div>
-          <div class="admin-field"><label>Name</label><input type="text" id="digName" placeholder="Room name" /></div>
-          <div class="admin-field"><label>Short desc</label><textarea id="digDesc" rows="2" placeholder="You stand..."></textarea></div>
-          <button class="admin-btn" onclick="adminDig()">⬡ DIG ROOM</button>
+          <div class="af"><label>Name</label><input type="text" id="digName" /></div>
+          <div class="af"><label>Short desc</label><textarea id="digDesc"></textarea></div>
+          <button class="abtn" onclick="adminDig()">⬡ DIG</button>
         </details>
 
-        <details style="margin-top:0.6rem"><summary style="cursor:pointer;font-size:11px;color:var(--accent2);margin-bottom:0.4rem">Link existing room</summary>
-          <div class="admin-row">
-            <div class="admin-field"><label>Direction</label>
-              <select id="linkDir"><option>n</option><option>s</option><option>e</option><option>w</option><option>ne</option><option>nw</option><option>se</option><option>sw</option><option>u</option><option>d</option><option>in</option><option>out</option></select>
-            </div>
+        <details><summary>Link existing room</summary>
+          <div class="arow">
+            <div class="af"><label>Dir</label><select id="linkDir"><option>n</option><option>s</option><option>e</option><option>w</option><option>ne</option><option>nw</option><option>se</option><option>sw</option><option>u</option><option>d</option><option>in</option><option>out</option></select></div>
           </div>
-          <div class="admin-field"><label>Target room ID</label><input type="text" id="linkTarget" placeholder="room-uuid" /></div>
-          <div class="admin-row">
-            <div class="admin-field"><label><input type="checkbox" id="linkBidi" checked /> Bidirectional</label></div>
-            <div class="admin-field"><label><input type="checkbox" id="linkDoor" /> Door</label></div>
+          <div class="af"><label>Target room ID</label><input type="text" id="linkTarget" /></div>
+          <div class="arow">
+            <div class="af"><label><input type="checkbox" id="linkBidi" checked /> Bidi</label></div>
+            <div class="af"><label><input type="checkbox" id="linkDoor" /> Door</label></div>
           </div>
-          <button class="admin-btn" onclick="adminLink()">⬡ LINK</button>
+          <button class="abtn" onclick="adminLink()">⬡ LINK</button>
         </details>
 
-        <details style="margin-top:0.6rem"><summary style="cursor:pointer;font-size:11px;color:var(--accent2);margin-bottom:0.4rem">Unlink exit</summary>
-          <div class="admin-field"><label>Direction to remove</label>
-            <select id="unlinkDir"><option>n</option><option>s</option><option>e</option><option>w</option><option>ne</option><option>nw</option><option>se</option><option>sw</option><option>u</option><option>d</option><option>in</option><option>out</option></select>
-          </div>
-          <button class="admin-btn danger" onclick="adminUnlink()">✕ UNLINK</button>
+        <details><summary>Unlink exit</summary>
+          <div class="af"><label>Direction</label><select id="unlinkDir"><option>n</option><option>s</option><option>e</option><option>w</option><option>ne</option><option>nw</option><option>se</option><option>sw</option><option>u</option><option>d</option><option>in</option><option>out</option></select></div>
+          <button class="abtn danger" onclick="adminUnlink()">✕ UNLINK</button>
         </details>
 
-        <details style="margin-top:0.6rem"><summary style="cursor:pointer;font-size:11px;color:var(--accent2);margin-bottom:0.4rem">Edit room</summary>
-          <div class="admin-field"><label>Name</label><input type="text" id="editName" /></div>
-          <div class="admin-field"><label>Short desc</label><textarea id="editDesc" rows="2"></textarea></div>
-          <div class="admin-row">
-            <div class="admin-field"><label>Light</label>
-              <select id="editLight"><option>bright</option><option>normal</option><option>dim</option><option>dark</option><option>pitch_black</option></select>
-            </div>
-            <div class="admin-field"><label>Item cap</label><input type="number" id="editCap" min="0" max="500" /></div>
+        <details><summary>Edit room</summary>
+          <div class="af"><label>Name</label><input type="text" id="editName" /></div>
+          <div class="af"><label>Short desc</label><textarea id="editDesc"></textarea></div>
+          <div class="arow">
+            <div class="af"><label>Light</label><select id="editLight"><option>bright</option><option>normal</option><option>dim</option><option>dark</option><option>pitch_black</option></select></div>
+            <div class="af"><label>Cap</label><input type="number" id="editCap" min="0" max="500" /></div>
           </div>
-          <div class="admin-row">
-            <div class="admin-field"><label><input type="checkbox" id="editSafe" /> Safe zone</label></div>
-            <div class="admin-field"><label><input type="checkbox" id="editIndoor" /> Indoor</label></div>
+          <div class="arow">
+            <div class="af"><label><input type="checkbox" id="editSafe" /> Safe</label></div>
+            <div class="af"><label><input type="checkbox" id="editIndoor" /> Indoor</label></div>
           </div>
-          <button class="admin-btn" onclick="adminSetRoom()">✎ SAVE ROOM</button>
+          <button class="abtn" onclick="adminSetRoom()">✎ SAVE</button>
         </details>
 
-        <button class="admin-btn" onclick="adminLook()" style="margin-top:0.75rem">↺ Refresh overlay</button>
-        <div class="admin-field" style="margin-top:0.6rem"><label>Teleport to room ID</label>
-          <div style="display:flex;gap:0.4rem">
-            <input type="text" id="tpTarget" placeholder="room-uuid" style="flex:1" />
-            <button class="admin-btn" style="width:auto;margin-top:0" onclick="adminTeleport()">GO</button>
-          </div>
+        <div class="af" style="margin-top:.6rem"><label>Teleport to room ID</label>
+          <div style="display:flex;gap:.35rem"><input type="text" id="tpTarget" style="flex:1" /><button class="abtn" style="width:auto;margin-top:0" onclick="adminTeleport()">GO</button></div>
+        </div>
+        <button class="abtn" onclick="adminLook()" style="margin-top:.5rem">↺ Refresh overlay</button>
+      </div>
+
+      <div class="admin-content" id="acItems">
+        <div class="af"><label>Template ID</label><input type="text" id="placeTemplateId" /></div>
+        <div class="arow">
+          <div class="af"><label><input type="checkbox" id="placePersistent" /> Persistent</label></div>
+          <div class="af"><label>Duration (sec)</label><input type="number" id="placeDuration" /></div>
+        </div>
+        <div class="af"><label>Stack</label><input type="number" id="placeStack" value="1" min="1" /></div>
+        <button class="abtn" onclick="adminPlaceItem()">+ PLACE</button>
+        <hr style="border-color:var(--border);margin:.6rem 0" />
+        <div class="af"><label>Remove item ID</label>
+          <div style="display:flex;gap:.35rem"><input type="text" id="removeItemId" style="flex:1" /><button class="abtn danger" style="width:auto;margin-top:0" onclick="adminRemoveItem()">✕</button></div>
         </div>
       </div>
 
-      <!-- Items tab -->
-      <div class="admin-content" id="adminItems">
-        <div class="admin-field"><label>Template ID</label><input type="text" id="placeTemplateId" placeholder="item-template-uuid" /></div>
-        <div class="admin-row">
-          <div class="admin-field"><label><input type="checkbox" id="placePersistent" /> Persistent</label></div>
-          <div class="admin-field"><label>Duration (sec)</label><input type="number" id="placeDuration" placeholder="300" min="1" /></div>
+      <div class="admin-content" id="acAI">
+        <div class="arow">
+          <div class="af"><label>Extend dir</label><select id="aiDir"><option>n</option><option>s</option><option>e</option><option>w</option><option>ne</option><option>nw</option><option>se</option><option>sw</option><option>u</option><option>d</option></select></div>
+          <div class="af"><label>Count</label><input type="number" id="aiCount" value="3" min="1" max="8" /></div>
         </div>
-        <div class="admin-field"><label>Stack count</label><input type="number" id="placeStack" value="1" min="1" /></div>
-        <button class="admin-btn" onclick="adminPlaceItem()">+ PLACE ITEM</button>
-        <hr style="border-color:var(--border);margin:0.75rem 0" />
-        <div class="admin-field"><label>Remove item ID</label>
-          <div style="display:flex;gap:0.4rem">
-            <input type="text" id="removeItemId" placeholder="room-item-uuid" style="flex:1" />
-            <button class="admin-btn danger" style="width:auto;margin-top:0" onclick="adminRemoveItem()">✕</button>
-          </div>
-        </div>
-        <div style="font-size:10px;color:var(--muted);margin-top:0.5rem">(Click item in ground list to copy ID)</div>
-      </div>
-
-      <!-- AI tab -->
-      <div class="admin-content" id="adminAI">
-        <div class="admin-field"><label>Extend direction</label>
-          <select id="aiDir"><option>n</option><option>s</option><option>e</option><option>w</option><option>ne</option><option>nw</option><option>se</option><option>sw</option><option>u</option><option>d</option></select>
-        </div>
-        <div class="admin-field"><label>Room count (1-8)</label><input type="number" id="aiCount" value="3" min="1" max="8" /></div>
-        <div class="admin-field"><label>Theme / prompt</label><textarea id="aiPrompt" rows="4" placeholder="Describe what you want to build. E.g. 'A twisting forest path leading to an ancient Sartan shrine, dimly lit by ghost-fire lanterns'"></textarea></div>
-        <button class="admin-btn" onclick="adminAIGenerate()">✨ GENERATE DRAFT</button>
-        <div id="aiDraftPreview" style="display:none;margin-top:0.75rem">
-          <div style="font-size:10px;color:var(--warn);margin-bottom:0.4rem">DRAFT PREVIEW</div>
-          <div id="aiDraftContent" style="font-size:11px;color:var(--muted);line-height:1.6;max-height:200px;overflow-y:auto"></div>
-          <div style="display:flex;gap:0.4rem;margin-top:0.5rem">
-            <button class="admin-btn" onclick="adminAICommit()" style="flex:1;color:var(--success)">✓ COMMIT</button>
-            <button class="admin-btn danger" onclick="adminAIDiscard()" style="flex:1">✕ DISCARD</button>
+        <div class="af"><label>Theme / prompt</label><textarea id="aiPrompt" rows="4"></textarea></div>
+        <button class="abtn" onclick="adminAIGenerate()">✨ GENERATE</button>
+        <div id="aiDraftPreview" style="display:none;margin-top:.6rem">
+          <div style="font-size:10px;color:var(--warn);margin-bottom:.35rem">DRAFT PREVIEW</div>
+          <div id="aiDraftContent" style="font-size:11px;color:var(--muted);line-height:1.6;max-height:160px;overflow-y:auto"></div>
+          <div style="display:flex;gap:.35rem;margin-top:.4rem">
+            <button class="abtn" onclick="adminAICommit()" style="flex:1;color:var(--success)">✓ COMMIT</button>
+            <button class="abtn danger" onclick="adminAIDiscard()" style="flex:1">✕ DISCARD</button>
           </div>
         </div>
       </div>
     </div>
-  </div>
-</div>
+
+  </div><!-- /playArea -->
+</div><!-- /gameScreen -->
 
 <script>
-// ════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════
 // State
-// ════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════
 const API = '';
 let token = localStorage.getItem('pmmo_token') || '';
-let account = null;
 let socket = null;
 let currentRoom = null;
-let players = new Map();  // name → data
-let items   = new Map();  // id   → data
-let selectedRace = 'human';
+let players = new Map();
+let groundItems = new Map();
+let inventory = new Map();
 let isAdmin = false;
-let adminCurrentRoomData = null;
+let selectedRace = 'human';
+let phaserGame = null;
+let gameScene = null;
 
-// ════════════════════════════════════════════════════════════════════
-// Auth screen
-// ════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════
+// Auth
+// ═══════════════════════════════════════════════════
 function switchAuthTab(tab) {
-  document.querySelectorAll('.auth-tab').forEach((t, i) => t.classList.toggle('active', ['login','register'][i] === tab));
-  document.getElementById('loginForm').style.display   = tab === 'login' ? '' : 'none';
-  document.getElementById('registerForm').style.display = tab === 'register' ? '' : 'none';
+  document.querySelectorAll('.auth-tab').forEach((t,i) => t.classList.toggle('active', ['login','register'][i]===tab));
+  document.getElementById('loginForm').style.display   = tab==='login'    ? '' : 'none';
+  document.getElementById('registerForm').style.display = tab==='register' ? '' : 'none';
   document.getElementById('authErr').textContent = '';
 }
 
 async function doLogin() {
-  const username = document.getElementById('loginUser').value.trim();
-  const password = document.getElementById('loginPass').value;
-  await authRequest('/api/auth/login', { username, password });
+  await authRequest('/api/auth/login', {
+    username: document.getElementById('loginUser').value.trim(),
+    password: document.getElementById('loginPass').value,
+  });
 }
-
 async function doRegister() {
-  const username = document.getElementById('regUser').value.trim();
-  const password = document.getElementById('regPass').value;
-  const email    = document.getElementById('regEmail').value.trim();
-  await authRequest('/api/auth/register', { username, password, email: email || undefined });
+  const email = document.getElementById('regEmail').value.trim();
+  await authRequest('/api/auth/register', {
+    username: document.getElementById('regUser').value.trim(),
+    password: document.getElementById('regPass').value,
+    ...(email ? { email } : {}),
+  });
 }
 
 async function authRequest(path, body) {
   document.getElementById('authErr').textContent = '';
   try {
-    const res = await fetch(API + path, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Failed');
-    token = data.token;
-    account = data.account;
+    const r = await apiFetch(path, { method:'POST', body });
+    token = r.token;
     localStorage.setItem('pmmo_token', token);
     showScreen('charScreen');
     loadCharacters();
-  } catch (e) {
-    document.getElementById('authErr').textContent = e.message;
-  }
+  } catch(e) { document.getElementById('authErr').textContent = e.message; }
 }
 
-// Auto-login if token exists
 if (token) {
-  // Validate by fetching characters
-  fetch(API + '/api/auth/characters', { headers: { Authorization: `Bearer ${token}` } })
-    .then(r => r.ok ? r.json() : Promise.reject())
-    .then(() => { showScreen('charScreen'); loadCharacters(); })
-    .catch(() => { token = ''; localStorage.removeItem('pmmo_token'); });
+  apiFetch('/api/auth/characters').then(() => { showScreen('charScreen'); loadCharacters(); }).catch(() => { token=''; localStorage.removeItem('pmmo_token'); });
 }
 
-// ════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════
 // Character screen
-// ════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════
 async function loadCharacters() {
-  const res = await fetch(API + '/api/auth/characters', { headers: { Authorization: `Bearer ${token}` } });
-  const chars = await res.json();
+  const chars = await apiFetch('/api/auth/characters');
   const list = document.getElementById('charList');
   if (!chars.length) {
-    list.innerHTML = '<p style="color:var(--muted);font-size:12px;font-style:italic">No characters yet. Create one below.</p>';
+    list.innerHTML = '<p style="color:var(--muted);font-size:12px;font-style:italic">No characters. Create one below.</p>';
     document.getElementById('createCharForm').style.display = 'block';
     return;
   }
   list.innerHTML = chars.map(c => `
     <div class="char-card" onclick="playAs('${c.id}')">
-      <div>
-        <div class="cname">${c.name}</div>
-        <div class="cinfo">Lv.${c.level} ${c.race} ${c.class}</div>
-      </div>
+      <div><div class="cname">${c.name}</div><div class="cinfo">Lv.${c.level} ${c.race} ${c.class}</div></div>
       <div style="font-size:18px;color:var(--accent)">▶</div>
     </div>`).join('');
 }
 
 function toggleCreateChar() {
-  const form = document.getElementById('createCharForm');
-  form.style.display = form.style.display === 'none' ? 'block' : 'none';
+  const f = document.getElementById('createCharForm');
+  f.style.display = f.style.display === 'none' ? 'block' : 'none';
 }
-
-// Race selector
-document.querySelectorAll('.race-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.race-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    selectedRace = btn.dataset.race;
-  });
-});
+document.querySelectorAll('.race-btn').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.race-btn').forEach(r => r.classList.remove('active'));
+  b.classList.add('active'); selectedRace = b.dataset.race;
+}));
 
 async function doCreateChar() {
   const name = document.getElementById('newCharName').value.trim();
   document.getElementById('charErr').textContent = '';
   if (!name) { document.getElementById('charErr').textContent = 'Name required.'; return; }
   try {
-    const res = await fetch(API + '/api/auth/characters', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ name, race: selectedRace }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Failed');
-    playAs(data.id);
-  } catch (e) {
-    document.getElementById('charErr').textContent = e.message;
-  }
+    const c = await apiFetch('/api/auth/characters', { method:'POST', body:{ name, race: selectedRace } });
+    playAs(c.id);
+  } catch(e) { document.getElementById('charErr').textContent = e.message; }
 }
 
-// ════════════════════════════════════════════════════════════════════
-// Socket connection + game
-// ════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════
+// Phaser scene
+// ═══════════════════════════════════════════════════
+
+// Terrain → background colour mapping
+const TERRAIN_COLORS = {
+  plains:   0x2d4a1e, forest:   0x1a3a1a, city:    0x3a3520,
+  dungeon:  0x1a1520, cave:     0x201a15, mountain:0x2a2a35,
+  desert:   0x4a3a15, tundra:   0x2a3040, ocean:   0x0d2040,
+  river:    0x152535, ethereal: 0x201535, divine:  0x352015,
+  void:     0x0d0f1a,
+};
+const TERRAIN_ACCENT = {
+  plains:0x4a8a30, forest:0x2a6a2a, city:0x7a7050, dungeon:0x5a3060,
+  cave:0x5a4a35, mountain:0x6a6a80, desert:0x8a7030, tundra:0x5a6a80,
+  ocean:0x205080, river:0x305570, ethereal:0x604a80, divine:0x806030,
+  void:0x2a3050,
+};
+
+function initPhaser(mountEl) {
+  const W = mountEl.clientWidth || 640;
+  const H = 240;
+
+  class WorldScene extends Phaser.Scene {
+    constructor() { super({ key:'World' }); }
+
+    create() {
+      gameScene = this;
+      this.terrain = 'void';
+      this.playerSprites = new Map(); // name → sprite
+      this.selfSprite = null;
+      this.selfName = '';
+
+      // Background
+      this.bg = this.add.rectangle(W/2, H/2, W, H, TERRAIN_COLORS.void);
+
+      // Grid overlay (subtle)
+      const grid = this.add.graphics();
+      grid.lineStyle(1, 0xffffff, 0.03);
+      for (let x=0; x<W; x+=32) grid.lineBetween(x,0,x,H);
+      for (let y=0; y<H; y+=32) grid.lineBetween(0,y,W,y);
+
+      // Decoration particles container
+      this.decorGroup = this.add.group();
+
+      // Player sprites group
+      this.playerGroup = this.add.group();
+
+      // Self sprite placeholder
+      this.selfSprite = this.add.rectangle(W/2, H/2, 20, 24, 0x7c6af7);
+      this.selfLabel  = this.add.text(W/2, H/2-18, '', { fontSize:'9px', fill:'#d4d8f0', fontFamily:'Share Tech Mono' }).setOrigin(0.5);
+
+      // Light overlay for dark rooms
+      this.lightOverlay = this.add.rectangle(W/2, H/2, W, H, 0x000000, 0);
+    }
+
+    updateRoom(room) {
+      this.terrain = room.terrain || 'void';
+      const bg  = TERRAIN_COLORS[this.terrain] ?? TERRAIN_COLORS.void;
+      const acc = TERRAIN_ACCENT[this.terrain]  ?? TERRAIN_ACCENT.void;
+      this.bg.setFillStyle(bg);
+
+      // Light overlay
+      const lightAlpha = { bright:0, normal:0, dim:0.25, dark:0.5, pitch_black:0.85 }[room.light_level ?? 'normal'] ?? 0;
+      this.lightOverlay.setAlpha(lightAlpha);
+
+      // Scatter decorations
+      this.decorGroup.clear(true, true);
+      const g = this.add.graphics();
+      g.fillStyle(acc, 0.4);
+      for (let i=0; i<8; i++) {
+        const x = Phaser.Math.Between(20, W-20);
+        const y = Phaser.Math.Between(20, H-20);
+        const s = Phaser.Math.Between(4, 12);
+        g.fillRect(x, y, s, s);
+      }
+      this.decorGroup.add(g);
+
+      // Move light overlay to top
+      this.children.bringToTop(this.lightOverlay);
+      this.children.bringToTop(this.playerGroup);
+      this.children.bringToTop(this.selfSprite);
+      this.children.bringToTop(this.selfLabel);
+    }
+
+    setPlayerList(playerArr, selfName) {
+      this.selfName = selfName;
+      // Clear existing other-player sprites
+      this.playerGroup.clear(true, true);
+      const cx = W/2, cy = H/2;
+      const radius = 70;
+      playerArr.filter(p => p.name !== selfName).forEach((p, i, arr) => {
+        const angle = (i / Math.max(arr.length, 1)) * Math.PI * 2;
+        const x = cx + Math.cos(angle) * radius;
+        const y = cy + Math.sin(angle) * radius * 0.6;
+        const sprite = this.add.rectangle(x, y, 16, 20, 0x6af7c8);
+        const label  = this.add.text(x, y-15, p.name.slice(0,8), { fontSize:'8px', fill:'#6af7c8', fontFamily:'Share Tech Mono' }).setOrigin(0.5);
+        this.playerGroup.addMultiple([sprite, label]);
+      });
+      // Self label
+      this.selfLabel.setText(selfName.slice(0,8));
+    }
+  }
+
+  phaserGame = new Phaser.Game({
+    type: Phaser.AUTO,
+    width: W,
+    height: H,
+    backgroundColor: '#0d0f1a',
+    parent: mountEl,
+    scene: [WorldScene],
+    render: { pixelArt: true, antialias: false },
+  });
+}
+
+// ═══════════════════════════════════════════════════
+// Socket connection
+// ═══════════════════════════════════════════════════
 function playAs(characterId) {
   showScreen('gameScreen');
-  connectSocket(characterId);
+
+  // Init Phaser after screen is visible (needs layout)
+  requestAnimationFrame(() => {
+    const mount = document.getElementById('phaserMount');
+    if (!phaserGame) initPhaser(mount);
+    connectSocket(characterId);
+  });
 }
 
 function connectSocket(characterId) {
   if (socket) socket.disconnect();
-
-  socket = io({ auth: { token } });
+  socket = io({ auth:{ token } });
 
   socket.on('connect', () => {
-    log('Connected to server.', 'sys');
+    log('Connected.', 'sys');
     socket.emit('play', { character_id: characterId });
   });
-
-  socket.on('connect_error', (e) => {
-    log(`Connection error: ${e.message}`, 'err');
-  });
-
+  socket.on('connect_error', e => log(`Connection error: ${e.message}`, 'err'));
   socket.on('gmcp', ({ module, data }) => handleGMCP(module, data));
-
-  socket.on('disconnect', (reason) => {
-    log(`Disconnected: ${reason}`, 'err');
-  });
+  socket.on('disconnect', reason => log(`Disconnected: ${reason}`, 'err'));
 }
 
-// ════════════════════════════════════════════════════════════════════
-// GMCP handlers
-// ════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════
+// GMCP dispatch
+// ═══════════════════════════════════════════════════
+let selfName = '';
+
 function handleGMCP(module, data) {
   switch (module) {
-
     case 'Room.Info':
       currentRoom = data;
       players.clear();
-      items.clear();
-      if (data.players) data.players.forEach(p => players.set(p.name, p));
-      if (data.items)   data.items.forEach(i => items.set(i.id, i));
+      groundItems.clear();
+      (data.players||[]).forEach(p => players.set(p.name, p));
+      (data.items||[]).forEach(i => groundItems.set(i.id, i));
       renderRoom(data);
       renderPlayerList();
-      renderItemList();
+      renderGroundList();
+      gameScene?.updateRoom(data);
+      gameScene?.setPlayerList([...players.values()], selfName);
       if (isAdmin) adminLook();
       break;
 
@@ -551,25 +635,27 @@ function handleGMCP(module, data) {
       if (data.entered) {
         players.set(data.entered.name, data.entered);
         renderPlayerList();
-        log(`${data.entered.name} has entered.`, 'enter');
+        log(`${data.entered.name} arrives.`, 'enter');
       }
       if (data.left) {
         players.delete(data.left.name);
         renderPlayerList();
-        log(`${data.left.name} has left (${data.left.reason || 'gone'}).`, 'leave');
+        log(`${data.left.name} has left.`, 'leave');
       }
+      gameScene?.setPlayerList([...players.values()], selfName);
       break;
 
     case 'Room.Items':
-      if (data.added)   data.added.forEach(i => items.set(i.id, i));
-      if (data.removed) data.removed.forEach(id => items.delete(id));
-      renderItemList();
+      (data.added||[]).forEach(i => groundItems.set(i.id, i));
+      (data.removed||[]).forEach(id => groundItems.delete(id));
+      renderGroundList();
       break;
 
     case 'Char.Status':
+      selfName = data.name;
       document.getElementById('charName').textContent = `${data.name} [${data.race} ${data.class}]`;
       isAdmin = ['admin','developer'].includes(data.role);
-      document.getElementById('roleTag').style.display = isAdmin ? '' : 'none';
+      document.getElementById('roleTag').style.display   = isAdmin ? '' : 'none';
       document.getElementById('adminPanel').style.display = isAdmin ? '' : 'none';
       break;
 
@@ -579,262 +665,342 @@ function handleGMCP(module, data) {
       setBar('ep', data.ep, data.maxep);
       break;
 
+    case 'Char.Items.Inv':
+      inventory.clear();
+      (data.items||[]).forEach(i => inventory.set(i.id, i));
+      renderInvList();
+      break;
+
     case 'Move.Success':
       log(`You move ${data.direction}.`, 'move');
       break;
-
     case 'Move.Fail':
-      log(`Cannot go ${data.direction}: ${data.reason}`, 'err');
+      log(`Can't go ${data.direction}: ${data.reason}`, 'err');
+      break;
+
+    case 'Comm.Say':
+      log(`${data.sender} says: "${data.message}"`, 'say');
+      break;
+    case 'Comm.Tell':
+      if (data.echo) log(`You tell ${data.to}: "${data.message}"`, 'tell');
+      else           log(`${data.sender} tells you: "${data.message}"`, 'tell');
+      break;
+    case 'Comm.Yell':
+      log(`${data.sender} yells: "${data.message}"`, 'yell');
+      break;
+    case 'Comm.Emote':
+      log(`${data.sender} ${data.message}`, 'emote');
       break;
 
     case 'Admin.RoomInfo':
       handleAdminRoomInfo(data);
       break;
-
     case 'Admin.AIDraft':
       handleAIDraft(data);
       break;
 
     case 'Server.Message':
-      log(data.text, 'sys');
+      if (data.type === 'examine') {
+        const attrs = JSON.stringify(data.item?.attributes || {}, null, 2);
+        log(`[${(data.item?.type||'').toUpperCase()}] ${data.item?.name}\n${data.item?.description||''}`, 'sys');
+        const el = document.createElement('p');
+        el.className = 'log-line examine';
+        el.innerHTML = `<pre>${attrs}</pre>`;
+        document.getElementById('logArea').appendChild(el);
+        document.getElementById('logArea').scrollTop = 9e9;
+      } else {
+        log(data.text, 'sys');
+      }
       break;
-
     case 'Server.Error':
-      log(`Error: ${data.text}`, 'err');
+      log(`! ${data.text}`, 'err');
       break;
   }
 }
 
-// ════════════════════════════════════════════════════════════════════
-// Room rendering
-// ════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════
+// Rendering helpers
+// ═══════════════════════════════════════════════════
 function renderRoom(room) {
   document.getElementById('roomName').textContent = room.name;
   document.getElementById('roomDesc').textContent = room.short_desc || '';
-  document.getElementById('roomLong').textContent = room.long_desc || '';
-
-  const exitBtns = document.getElementById('exitBtns');
-  exitBtns.innerHTML = '';
-  if (room.exits && room.exits.length) {
+  const btns = document.getElementById('exitBtns');
+  btns.innerHTML = '';
+  if (room.exits?.length) {
     room.exits.forEach(x => {
-      const btn = document.createElement('button');
-      btn.className = 'exit-btn' + (x.door ? ' door' : '') + (x.locked ? ' locked' : '');
-      btn.textContent = x.dir.toUpperCase();
-      btn.title = x.name + (x.door ? ' (door)' : '') + (x.locked ? ' [locked]' : '');
-      if (!x.locked) btn.onclick = () => move(x.dir);
-      exitBtns.appendChild(btn);
+      const b = document.createElement('button');
+      b.className = 'exit-btn' + (x.door?' door':'') + (x.locked?' locked':'');
+      b.textContent = x.dir.toUpperCase();
+      b.title = x.name + (x.door?' (door)':'') + (x.locked?' [locked]':'');
+      if (!x.locked) b.onclick = () => move(x.dir);
+      btns.appendChild(b);
     });
   } else {
-    exitBtns.innerHTML = '<span style="color:var(--dim);font-size:11px">none</span>';
+    btns.innerHTML = '<span style="color:var(--dim);font-size:11px">none</span>';
   }
 }
 
 function renderPlayerList() {
   const list = document.getElementById('playerList');
-  if (!players.size) { list.innerHTML = '<li class="empty-msg">none</li>'; return; }
+  if (!players.size) { list.innerHTML='<li class="empty-msg">none</li>'; return; }
   list.innerHTML = [...players.values()].map(p => `
-    <li class="player-entry">
-      <div class="pname">${p.name}</div>
-      <div class="pinfo">Lv.${p.level || '?'} ${p.race || ''} ${p.class || ''}</div>
+    <li><div class="pname">${p.name}</div><div class="pinfo">Lv.${p.level||'?'} ${p.race||''}</div></li>`).join('');
+}
+
+function renderGroundList() {
+  const list = document.getElementById('itemList');
+  if (!groundItems.size) { list.innerHTML='<li class="empty-msg">none</li>'; return; }
+  list.innerHTML = [...groundItems.values()].map(i => `
+    <li style="cursor:pointer" onclick="clickGroundItem('${i.id}','${escapeHtml(i.name)}')">
+      <div class="iname">${i.name}</div>
+      <div class="iinfo">${i.type}${i.stackCount>1?` ×${i.stackCount}`:''}${i.persistent?' [fixed]':''}</div>
     </li>`).join('');
 }
 
-function renderItemList() {
-  const list = document.getElementById('itemList');
-  if (!items.size) { list.innerHTML = '<li class="empty-msg">none</li>'; return; }
-  list.innerHTML = [...items.values()].map(i => `
-    <li class="item-entry" onclick="copyToClipboard('${i.id}')" title="Click to copy ID: ${i.id}" style="cursor:pointer">
-      <div class="iname">${i.name}</div>
-      <div class="iinfo">${i.type}${i.stackCount > 1 ? ` ×${i.stackCount}` : ''}${i.persistent ? ' [fixed]' : ''}</div>
+function renderInvList() {
+  const list = document.getElementById('invList');
+  if (!inventory.size) { list.innerHTML='<li class="empty-msg">empty</li>'; return; }
+  list.innerHTML = [...inventory.values()].map(i => `
+    <li style="cursor:pointer" onclick="clickInvItem('${i.id}','${escapeHtml(i.name)}')">
+      <div class="iname">${i.name}${i.equippedSlot?` [${i.equippedSlot}]`:''}</div>
+      <div class="iinfo">${i.type}${i.stackCount>1?` ×${i.stackCount}`:''}</div>
     </li>`).join('');
 }
 
 function setBar(type, val, max) {
-  const pct = max > 0 ? Math.max(0, Math.min(100, (val / max) * 100)) : 0;
+  const pct = max>0 ? Math.max(0, Math.min(100, (val/max)*100)) : 0;
   document.getElementById(`${type}Bar`).style.width = `${pct}%`;
   document.getElementById(`${type}Val`).textContent = `${val}/${max}`;
 }
 
-// ════════════════════════════════════════════════════════════════════
-// Movement
-// ════════════════════════════════════════════════════════════════════
-function move(dir) {
-  socket?.emit('move', { direction: dir });
-}
-
-const KEY_MAP = { ArrowUp:'n', ArrowDown:'s', ArrowLeft:'w', ArrowRight:'e', w:'n', s:'s', a:'w', d:'e' };
-document.addEventListener('keydown', (e) => {
-  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
-  const dir = KEY_MAP[e.key];
-  if (dir) { e.preventDefault(); move(dir); }
+// ═══════════════════════════════════════════════════
+// Command input bar
+// ═══════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('cmdInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') submitCommand();
+  });
 });
 
-// ════════════════════════════════════════════════════════════════════
-// Log
-// ════════════════════════════════════════════════════════════════════
-function log(text, type = '') {
-  const area = document.getElementById('logArea');
-  const p = document.createElement('p');
-  p.className = 'log-line' + (type ? ` ${type}` : '');
-  p.textContent = text;
-  area.appendChild(p);
-  area.scrollTop = area.scrollHeight;
-  // Keep last 200 lines
-  while (area.children.length > 200) area.removeChild(area.firstChild);
+function submitCommand() {
+  const input = document.getElementById('cmdInput');
+  const raw = input.value.trim();
+  input.value = '';
+  if (!raw) return;
+  parseCommand(raw);
 }
 
-// ════════════════════════════════════════════════════════════════════
-// Admin commands
-// ════════════════════════════════════════════════════════════════════
-function adminTab(tab) {
-  document.querySelectorAll('.admin-tab').forEach((t, i) => t.classList.toggle('active', ['room','items','ai'][i] === tab));
-  document.querySelectorAll('.admin-content').forEach((c, i) => c.classList.toggle('active', ['room','items','ai'][i] === tab));
-}
+function parseCommand(raw) {
+  const [cmd, ...rest] = raw.split(' ');
+  const arg = rest.join(' ').trim();
 
-function adminLook() {
-  socket?.emit('admin:look');
-}
-
-function handleAdminRoomInfo(data) {
-  adminCurrentRoomData = data;
-  document.getElementById('adminRoomId').textContent = `ID: ${data.id}`;
-
-  // Pre-fill edit fields
-  document.getElementById('editName').value   = data.name || '';
-  document.getElementById('editDesc').value   = data.short_desc || '';
-  document.getElementById('editLight').value  = data.light_level || 'normal';
-  document.getElementById('editCap').value    = data.item_cap ?? 50;
-  document.getElementById('editSafe').checked   = !!data.safe_zone;
-  document.getElementById('editIndoor').checked = !!data.indoor;
-
-  // Exit list
-  const exits = data.exits_detail || [];
-  document.getElementById('adminExitList').innerHTML = exits.length
-    ? exits.map(x => `<span style="color:var(--accent2)">${x.dir}</span>→<span style="color:var(--muted)">${x.to_room_name}</span>  `).join('  ')
-    : '<span style="color:var(--dim)">No exits</span>';
-
-  // Items/players count
-  const cap = data.item_cap ?? 50;
-  const count = data.item_count ?? 0;
-  document.getElementById('adminRoomId').textContent = `ID: ${data.id}\n${count}/${cap} items  ${data.player_count ?? 0} players`;
-}
-
-function adminDig() {
-  const dir     = document.getElementById('digDir').value;
-  const name    = document.getElementById('digName').value.trim();
-  const desc    = document.getElementById('digDesc').value.trim();
-  const terrain = document.getElementById('digTerrain').value;
-  if (!name || !desc) { log('Dig: name and short_desc required.', 'err'); return; }
-  socket?.emit('admin:dig', { direction: dir, name, short_desc: desc, terrain_type: terrain });
-}
-
-function adminLink() {
-  const dir    = document.getElementById('linkDir').value;
-  const target = document.getElementById('linkTarget').value.trim();
-  const bidi   = document.getElementById('linkBidi').checked;
-  const door   = document.getElementById('linkDoor').checked;
-  if (!target) { log('Link: target room ID required.', 'err'); return; }
-  socket?.emit('admin:link', { direction: dir, target_room_id: target, bidirectional: bidi, is_door: door });
-}
-
-function adminUnlink() {
-  const dir = document.getElementById('unlinkDir').value;
-  if (!confirm(`Remove exit: ${dir}?`)) return;
-  socket?.emit('admin:unlink', { direction: dir });
-}
-
-function adminSetRoom() {
-  socket?.emit('admin:setroom', {
-    name:         document.getElementById('editName').value.trim(),
-    short_desc:   document.getElementById('editDesc').value.trim(),
-    light_level:  document.getElementById('editLight').value,
-    item_cap:     Number(document.getElementById('editCap').value),
-    safe_zone:    document.getElementById('editSafe').checked,
-    indoor:       document.getElementById('editIndoor').checked,
-  });
-}
-
-function adminPlaceItem() {
-  const template_id    = document.getElementById('placeTemplateId').value.trim();
-  const is_persistent  = document.getElementById('placePersistent').checked;
-  const duration_val   = document.getElementById('placeDuration').value;
-  const stack_count    = Number(document.getElementById('placeStack').value) || 1;
-  if (!template_id) { log('Place: template ID required.', 'err'); return; }
-  socket?.emit('admin:placeitem', {
-    template_id,
-    is_persistent,
-    duration_seconds: !is_persistent && duration_val ? Number(duration_val) : null,
-    stack_count,
-  });
-}
-
-function adminRemoveItem() {
-  const item_id = document.getElementById('removeItemId').value.trim();
-  if (!item_id) { log('Remove: item ID required.', 'err'); return; }
-  socket?.emit('admin:removeitem', { item_id });
-}
-
-function adminTeleport() {
-  const room_id = document.getElementById('tpTarget').value.trim();
-  if (!room_id) return;
-  socket?.emit('admin:teleport', { room_id });
-}
-
-function adminAIGenerate() {
-  const direction = document.getElementById('aiDir').value;
-  const count     = Number(document.getElementById('aiCount').value) || 3;
-  const prompt    = document.getElementById('aiPrompt').value.trim();
-  if (!prompt) { log('AI: prompt required.', 'err'); return; }
-  document.getElementById('aiDraftPreview').style.display = 'none';
-  socket?.emit('admin:ai:generate', { direction, count, prompt });
-}
-
-function handleAIDraft(data) {
-  const preview = document.getElementById('aiDraftPreview');
-  const content = document.getElementById('aiDraftContent');
-
-  if (data.status === 'preview') {
-    let html = `<strong style="color:var(--accent2)">${data.theme_note}</strong><br><br>`;
-    data.rooms.forEach(r => {
-      html += `<strong>${r.name}</strong> [${r.terrain_type}]<br><em>${r.short_desc}</em><br><br>`;
-    });
-    html += `<strong>Exits:</strong> ${data.exits.map(e => `${e.from}→${e.direction}→${e.to}`).join(', ')}`;
-    content.innerHTML = html;
-    preview.style.display = 'block';
-    log(`AI draft ready: ${data.rooms.length} room(s). Review in AI tab.`, 'sys');
-    adminTab('ai');
-  } else if (data.status === 'committed') {
-    preview.style.display = 'none';
-    log(`Committed ${data.rooms.length} room(s): ${data.rooms.map(r=>r.name).join(', ')}.`, 'sys');
-    adminLook();
-  } else if (data.status === 'discarded') {
-    preview.style.display = 'none';
-    log('AI draft discarded.', 'sys');
+  switch (cmd.toLowerCase()) {
+    case 'say':
+      if (!arg) { log('Say what?','err'); return; }
+      socket?.emit('say', { message: arg });
+      break;
+    case 'tell': {
+      const [target, ...msg] = rest;
+      if (!target || !msg.length) { log('Usage: tell Name message','err'); return; }
+      socket?.emit('tell', { target, message: msg.join(' ') });
+      break;
+    }
+    case 'yell': case 'shout':
+      if (!arg) { log('Yell what?','err'); return; }
+      socket?.emit('yell', { message: arg });
+      break;
+    case 'emote': case 'em':
+      if (!arg) return;
+      socket?.emit('emote', { message: arg });
+      break;
+    case 'look': case 'l':
+      socket?.emit('look');
+      break;
+    case 'inv': case 'i':
+      socket?.emit('inv');
+      sideTab('inv');
+      break;
+    case 'get':
+      if (!arg) { log('Get what? Use item ID or click item.','err'); return; }
+      socket?.emit('item:get', { item_id: arg });
+      break;
+    case 'drop':
+      if (!arg) { log('Drop what?','err'); return; }
+      socket?.emit('item:drop', { item_id: arg });
+      break;
+    case 'examine': case 'ex':
+      if (!arg) return;
+      socket?.emit('item:examine', { item_id: arg });
+      break;
+    case 'n': case 's': case 'e': case 'w':
+    case 'ne': case 'nw': case 'se': case 'sw':
+    case 'u': case 'd': case 'in': case 'out':
+      move(cmd.toLowerCase());
+      break;
+    case 'north': move('n'); break;
+    case 'south': move('s'); break;
+    case 'east':  move('e'); break;
+    case 'west':  move('w'); break;
+    case 'up':    move('u'); break;
+    case 'down':  move('d'); break;
+    default:
+      log(`Unknown command: ${cmd}. Try: say, tell, yell, emote, look, inv, get, drop, examine, n/s/e/w`, 'err');
   }
 }
 
-function adminAICommit() {
-  socket?.emit('admin:ai:commit');
+// Keyboard shortcuts (when not in input)
+const KEY_DIR = { ArrowUp:'n', ArrowDown:'s', ArrowLeft:'w', ArrowRight:'e' };
+document.addEventListener('keydown', e => {
+  const active = document.activeElement;
+  if (active.id === 'cmdInput' || active.tagName === 'TEXTAREA' || active.tagName === 'INPUT') return;
+  const dir = KEY_DIR[e.key];
+  if (dir) { e.preventDefault(); move(dir); }
+});
+
+function move(dir) { socket?.emit('move', { direction: dir }); }
+
+// Click ground item → fill drop zone or get
+function clickGroundItem(id, name) {
+  socket?.emit('item:get', { item_id: id });
+}
+function clickInvItem(id, name) {
+  socket?.emit('item:drop', { item_id: id });
 }
 
-function adminAIDiscard() {
+// ═══════════════════════════════════════════════════
+// Log
+// ═══════════════════════════════════════════════════
+function log(text, type='') {
+  const area = document.getElementById('logArea');
+  const p = document.createElement('p');
+  p.className = 'log-line' + (type?` ${type}`:'');
+  p.textContent = text;
+  area.appendChild(p);
+  area.scrollTop = 9e9;
+  while (area.children.length > 300) area.removeChild(area.firstChild);
+}
+
+// ═══════════════════════════════════════════════════
+// Side panel tabs
+// ═══════════════════════════════════════════════════
+function sideTab(tab) {
+  const tabs = ['players','ground','inv'];
+  document.querySelectorAll('.side-tab').forEach((t,i) => t.classList.toggle('active', tabs[i]===tab));
+  document.querySelectorAll('.side-content').forEach((c,i) => c.classList.toggle('active', tabs[i]===tab));
+}
+
+// ═══════════════════════════════════════════════════
+// Admin
+// ═══════════════════════════════════════════════════
+function adminTab(tab) {
+  const tabs=['room','items','ai'];
+  document.querySelectorAll('.admin-tab').forEach((t,i) => t.classList.toggle('active', tabs[i]===tab));
+  document.querySelectorAll('.admin-content').forEach((c,i) => c.classList.toggle('active', tabs[i]===tab));
+}
+function adminLook() { socket?.emit('admin:look'); }
+
+function handleAdminRoomInfo(data) {
+  const exits = (data.exits_detail||[]).map(x=>`${x.dir}→${x.to_room_name.slice(0,12)}`).join('  ');
+  document.getElementById('adminRoomMeta').textContent =
+    `ID: ${data.id}\n${data.item_count??0}/${data.item_cap??50} items  ${data.player_count??0} players\n${exits||'no exits'}`;
+  document.getElementById('editName').value   = data.name||'';
+  document.getElementById('editDesc').value   = data.short_desc||'';
+  document.getElementById('editLight').value  = data.light_level||'normal';
+  document.getElementById('editCap').value    = data.item_cap??50;
+  document.getElementById('editSafe').checked   = !!data.safe_zone;
+  document.getElementById('editIndoor').checked = !!data.indoor;
+}
+
+function adminDig() {
+  const name=document.getElementById('digName').value.trim(), desc=document.getElementById('digDesc').value.trim();
+  if (!name||!desc) { log('Dig: name and desc required','err'); return; }
+  socket?.emit('admin:dig', { direction:document.getElementById('digDir').value, name, short_desc:desc, terrain_type:document.getElementById('digTerrain').value });
+}
+function adminLink() {
+  const target=document.getElementById('linkTarget').value.trim();
+  if (!target) { log('Link: target ID required','err'); return; }
+  socket?.emit('admin:link', { direction:document.getElementById('linkDir').value, target_room_id:target, bidirectional:document.getElementById('linkBidi').checked, is_door:document.getElementById('linkDoor').checked });
+}
+function adminUnlink() {
+  if (!confirm('Remove this exit?')) return;
+  socket?.emit('admin:unlink', { direction:document.getElementById('unlinkDir').value });
+}
+function adminSetRoom() {
+  socket?.emit('admin:setroom', {
+    name:document.getElementById('editName').value.trim(),
+    short_desc:document.getElementById('editDesc').value.trim(),
+    light_level:document.getElementById('editLight').value,
+    item_cap:Number(document.getElementById('editCap').value),
+    safe_zone:document.getElementById('editSafe').checked,
+    indoor:document.getElementById('editIndoor').checked,
+  });
+}
+function adminPlaceItem() {
+  const tid=document.getElementById('placeTemplateId').value.trim();
+  if (!tid) { log('Template ID required','err'); return; }
+  const pers=document.getElementById('placePersistent').checked;
+  const dur=document.getElementById('placeDuration').value;
+  socket?.emit('admin:placeitem', { template_id:tid, is_persistent:pers, duration_seconds:(!pers&&dur)?Number(dur):null, stack_count:Number(document.getElementById('placeStack').value)||1 });
+}
+function adminRemoveItem() {
+  const id=document.getElementById('removeItemId').value.trim();
+  if (!id) return;
+  socket?.emit('admin:removeitem', { item_id:id });
+}
+function adminTeleport() {
+  const id=document.getElementById('tpTarget').value.trim();
+  if (!id) return;
+  socket?.emit('admin:teleport', { room_id:id });
+}
+
+function adminAIGenerate() {
+  const prompt=document.getElementById('aiPrompt').value.trim();
+  if (!prompt) { log('AI: prompt required','err'); return; }
   document.getElementById('aiDraftPreview').style.display = 'none';
-  socket?.emit('admin:ai:discard');
+  socket?.emit('admin:ai:generate', { direction:document.getElementById('aiDir').value, count:Number(document.getElementById('aiCount').value)||3, prompt });
 }
+function handleAIDraft(data) {
+  const preview=document.getElementById('aiDraftPreview'), content=document.getElementById('aiDraftContent');
+  if (data.status==='preview') {
+    let html=`<strong style="color:var(--accent2)">${data.theme_note}</strong><br><br>`;
+    data.rooms.forEach(r => { html+=`<strong>${r.name}</strong> [${r.terrain_type}]<br><em>${r.short_desc}</em><br><br>`; });
+    html+=`Exits: ${data.exits.map(e=>`${e.from}→${e.direction}→${e.to}`).join(', ')}`;
+    content.innerHTML = html;
+    preview.style.display = 'block';
+    log(`AI draft ready: ${data.rooms.length} room(s).`,'sys');
+    adminTab('ai');
+  } else if (data.status==='committed') {
+    preview.style.display = 'none';
+    log(`Committed: ${data.rooms.map(r=>r.name).join(', ')}`,'sys');
+    adminLook();
+  } else {
+    preview.style.display = 'none';
+    log('Draft discarded.','sys');
+  }
+}
+function adminAICommit() { socket?.emit('admin:ai:commit'); }
+function adminAIDiscard() { document.getElementById('aiDraftPreview').style.display='none'; socket?.emit('admin:ai:discard'); }
 
-// ════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════
 // Utilities
-// ════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
 }
 
-function copyToClipboard(text) {
-  navigator.clipboard?.writeText(text).then(() => log(`Copied: ${text.slice(0,8)}…`, 'sys'));
-  // Also auto-fill remove field
-  document.getElementById('removeItemId').value = text;
+async function apiFetch(path, opts={}) {
+  const res = await fetch(API+path, {
+    ...opts,
+    headers: { 'Content-Type':'application/json', ...(token?{Authorization:`Bearer ${token}`}:{}), ...(opts.headers||{}) },
+    body: opts.body ? JSON.stringify(opts.body) : undefined,
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error||'Request failed');
+  return data;
 }
+
+function escapeHtml(s) { return String(s).replace(/['"&<>]/g,''); }
 </script>
 </body>
 </html>

@@ -5,8 +5,10 @@ import { trackJoin, getSession } from '../engine/playerManager.js';
 import { enterRoom, handleDisconnect, sendRoomInfo } from '../engine/roomManager.js';
 import { tickExpiredItems } from '../engine/itemManager.js';
 import { registerMovementHandlers } from './handlers/movement.js';
-import { registerAdminHandlers, setIO } from './handlers/admin.js';
-import { broadcast, GM, send, msg, err } from './gmcp.js';
+import { registerAdminHandlers, setIO as adminSetIO } from './handlers/admin.js';
+import { registerCommunicationHandlers } from './handlers/communication.js';
+import { registerInventoryHandlers, sendInventory, setIO as invSetIO } from './handlers/inventory.js';
+import { broadcast, GM, send, err } from './gmcp.js';
 
 export function createSocketServer(httpServer) {
   const io = new Server(httpServer, {
@@ -15,8 +17,8 @@ export function createSocketServer(httpServer) {
     pingInterval: 10000,
   });
 
-  // Wire io into admin handler before any connections arrive
-  setIO(io);
+  adminSetIO(io);
+  invSetIO(io);
 
   io.use(socketAuth);
 
@@ -36,7 +38,6 @@ export function createSocketServer(httpServer) {
 
       if (!character) return err(socket, 'Character not found or not yours.');
 
-      // Resolve starting room
       let roomId = character.current_room_id;
       if (!roomId) {
         const voidRoom = db.prepare("SELECT id FROM rooms WHERE name = 'The Void' LIMIT 1").get();
@@ -46,7 +47,6 @@ export function createSocketServer(httpServer) {
         return err(socket, 'No rooms exist yet. An admin must build the world first.');
       }
 
-      // Create in-memory session (roomId=null — enterRoom will set it via trackMove)
       const session = trackJoin(socket.id, character, account);
 
       send(socket, GM.CHAR_STATUS, {
@@ -63,22 +63,23 @@ export function createSocketServer(httpServer) {
         ep: character.endurance, maxep: character.max_endurance,
       });
 
-      // Full transition into starting room
       enterRoom(io, socket, session, roomId);
+      sendInventory(socket);
 
       console.log(`[world] ${character.name} entered room ${roomId}`);
     });
 
-    // ── look: re-send current room state to this socket only ─────────────
+    // ── look ──────────────────────────────────────────────────────────────
     socket.on('look', () => {
       const session = getSession(socket.id);
       if (session?.roomId) sendRoomInfo(socket, session.roomId);
     });
 
-    // ── movement ──────────────────────────────────────────────────────────
+    // ── subsystems ────────────────────────────────────────────────────────
     registerMovementHandlers(io, socket);
+    registerCommunicationHandlers(io, socket);
+    registerInventoryHandlers(io, socket);
 
-    // ── admin commands ────────────────────────────────────────────────────
     if (['admin', 'developer'].includes(account.role)) {
       registerAdminHandlers(io, socket);
     }
@@ -94,7 +95,6 @@ export function createSocketServer(httpServer) {
   setInterval(() => {
     const expired = tickExpiredItems();
     if (!expired.length) return;
-
     const byRoom = new Map();
     for (const { roomId, itemId } of expired) {
       if (!byRoom.has(roomId)) byRoom.set(roomId, []);

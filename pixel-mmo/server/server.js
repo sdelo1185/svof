@@ -26,6 +26,7 @@ app.use(express.json({ limit: '2mb' }));
 
 // Static files
 app.use('/assets', express.static(join(__dir, '../client/assets')));
+app.use('/phaser', express.static(join(__dir, 'node_modules/phaser/dist')));
 app.use(express.static(join(__dir, '../client')));
 
 // REST routes

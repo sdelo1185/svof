@@ -18,18 +18,22 @@
  */
 
 export const GM = {
-  ROOM_INFO:     'Room.Info',
-  ROOM_PLAYERS:  'Room.Players',
-  ROOM_ITEMS:    'Room.Items',
-  CHAR_STATUS:   'Char.Status',
-  CHAR_VITALS:   'Char.Vitals',
-  CHAR_ITEMS:    'Char.Items',
-  MOVE_SUCCESS:  'Move.Success',
-  MOVE_FAIL:     'Move.Fail',
-  ADMIN_ROOM:    'Admin.RoomInfo',
-  ADMIN_DRAFT:   'Admin.AIDraft',
-  SERVER_MSG:    'Server.Message',
-  SERVER_ERR:    'Server.Error',
+  ROOM_INFO:       'Room.Info',
+  ROOM_PLAYERS:    'Room.Players',
+  ROOM_ITEMS:      'Room.Items',
+  CHAR_STATUS:     'Char.Status',
+  CHAR_VITALS:     'Char.Vitals',
+  CHAR_ITEMS_INV:  'Char.Items.Inv',
+  MOVE_SUCCESS:    'Move.Success',
+  MOVE_FAIL:       'Move.Fail',
+  COMM_SAY:        'Comm.Say',
+  COMM_TELL:       'Comm.Tell',
+  COMM_YELL:       'Comm.Yell',
+  COMM_EMOTE:      'Comm.Emote',
+  ADMIN_ROOM:      'Admin.RoomInfo',
+  ADMIN_DRAFT:     'Admin.AIDraft',
+  SERVER_MSG:      'Server.Message',
+  SERVER_ERR:      'Server.Error',
 };
 
 /**
