@@ -190,6 +190,47 @@ router.post('/rooms/:id/npcs', requireAdmin, (req, res) => {
   res.status(501).json({ error: 'Use admin:npc:place socket command.' });
 });
 
+// ─── Worldbuilding submissions (admin review via JWT) ─────────────────────────
+
+router.get('/submissions', requireAdmin, (req, res) => {
+  const { status = 'pending', limit = 20, offset = 0 } = req.query;
+  const db = getDb();
+  const rows = db.prepare(
+    'SELECT * FROM submissions WHERE status = ? ORDER BY created_at ASC LIMIT ? OFFSET ?'
+  ).all(status, Number(limit), Number(offset));
+  res.json(rows.map(r => ({ ...r, attributes: JSON.parse(r.attributes) })));
+});
+
+router.post('/submissions/:id/approve', requireAdmin, (req, res) => {
+  const db = getDb();
+  const sub = db.prepare('SELECT * FROM submissions WHERE id = ? AND status = ?').get(req.params.id, 'pending');
+  if (!sub) return res.status(404).json({ error: 'Pending submission not found.' });
+
+  const attrs = { ...JSON.parse(sub.attributes), ...(req.body.attribute_overrides || {}) };
+  const committedId = uuidv4();
+  const now = Date.now();
+
+  db.transaction(() => {
+    db.prepare('UPDATE submissions SET status=?,admin_id=?,admin_notes=?,reviewed_at=? WHERE id=?')
+      .run('approved', req.account.id, req.body.admin_notes || null, now, sub.id);
+    db.prepare(`INSERT INTO committed_assets (id,submission_id,type,name,description,image_url,attributes,region,committed_at,committed_by)
+      VALUES (?,?,?,?,?,?,?,?,?,?)`)
+      .run(committedId, sub.id, sub.type, attrs.name || sub.description.slice(0,60),
+           sub.description, sub.image_url, JSON.stringify(attrs),
+           req.body.region || attrs.region || null, now, req.account.id);
+  })();
+
+  res.json({ committed_id: committedId });
+});
+
+router.post('/submissions/:id/reject', requireAdmin, (req, res) => {
+  const db = getDb();
+  const r = db.prepare('UPDATE submissions SET status=?,admin_id=?,admin_notes=?,reviewed_at=? WHERE id=? AND status=?')
+    .run('rejected', req.account.id, req.body.admin_notes || null, Date.now(), req.params.id, 'pending');
+  if (!r.changes) return res.status(404).json({ error: 'Not found.' });
+  res.json({ ok: true });
+});
+
 // ─── Admin stats ─────────────────────────────────────────────────────────────
 
 router.get('/stats', requireAdmin, (req, res) => {

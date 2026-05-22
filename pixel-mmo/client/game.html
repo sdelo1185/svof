@@ -362,6 +362,7 @@
         <div class="admin-tab" onclick="adminTab('items')">Items</div>
         <div class="admin-tab" onclick="adminTab('npcs')">NPCs</div>
         <div class="admin-tab" onclick="adminTab('ai')">AI</div>
+        <div class="admin-tab" onclick="adminTab('subs')">Review</div>
       </div>
 
       <div class="admin-content active" id="acRoom">
@@ -496,6 +497,14 @@
             <button class="abtn danger" onclick="adminAIDiscard()" style="flex:1">✕ DISCARD</button>
           </div>
         </div>
+      </div>
+
+      <div class="admin-content" id="acSubs">
+        <div style="display:flex;gap:.3rem;margin-bottom:.4rem">
+          <button class="abtn" style="flex:1" onclick="adminLoadSubs('pending')">Pending</button>
+          <button class="abtn" style="flex:1" onclick="adminLoadSubs('approved')">Approved</button>
+        </div>
+        <div id="subsList" style="font-size:11px;color:var(--muted);line-height:1.7">Click Pending to load.</div>
       </div>
     </div>
 
@@ -1260,7 +1269,7 @@ function sideTab(tab) {
 // Admin
 // ═══════════════════════════════════════════════════
 function adminTab(tab) {
-  const tabs=['room','items','npcs','ai'];
+  const tabs=['room','items','npcs','ai','subs'];
   document.querySelectorAll('.admin-tab').forEach((t,i) => t.classList.toggle('active', tabs[i]===tab));
   document.querySelectorAll('.admin-content').forEach((c,i) => c.classList.toggle('active', tabs[i]===tab));
 }
@@ -1513,6 +1522,46 @@ function adminNpcDialogue() {
   let dialogue;
   try { dialogue = JSON.parse(raw); } catch { log('Dialogue must be valid JSON','err'); return; }
   socket?.emit('admin:npc:dialogue', { npc_id: id, dialogue });
+}
+
+// ─── Worldbuilding submissions review ─────────────────────────────────────────
+async function adminLoadSubs(status = 'pending') {
+  const list = document.getElementById('subsList');
+  list.innerHTML = '<span style="color:var(--dim)">Loading...</span>';
+  adminTab('subs');
+  try {
+    const rows = await apiFetch(`/api/world/submissions?status=${status}`);
+    if (!rows.length) { list.innerHTML = `<span style="color:var(--dim)">No ${status} submissions.</span>`; return; }
+    list.innerHTML = rows.map(s => `
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:.5rem;margin-bottom:.4rem">
+        <div style="font-family:var(--pixel);font-size:8px;color:var(--accent2)">[${s.type.toUpperCase()}] ${escapeHtml(s.attributes?.name||s.description?.slice(0,30)||'?')}</div>
+        <div style="font-size:10px;color:var(--muted);margin:.2rem 0">${escapeHtml(s.creator_name)} · ${new Date(s.created_at).toLocaleDateString()}</div>
+        <div style="font-size:10px;color:var(--text);margin-bottom:.3rem">${escapeHtml((s.description||'').slice(0,80))}${s.description?.length>80?'…':''}</div>
+        ${s.image_url?`<img src="${s.image_url}" style="width:100%;border-radius:2px;image-rendering:pixelated;margin-bottom:.3rem" />`:''}
+        ${status==='pending'?`
+        <div style="display:flex;gap:.3rem">
+          <button class="abtn" style="flex:1;color:var(--success)" onclick="adminApproveSub('${s.id}')">✓ Approve</button>
+          <button class="abtn danger" style="flex:1" onclick="adminRejectSub('${s.id}')">✕ Reject</button>
+        </div>`:`<div style="font-size:10px;color:var(--success)">✓ ${s.status}</div>`}
+      </div>`).join('');
+  } catch(e) { list.innerHTML = `<span style="color:var(--danger)">${e.message}</span>`; }
+}
+
+async function adminApproveSub(id) {
+  try {
+    await apiFetch(`/api/world/submissions/${id}/approve`, { method: 'POST', body: { admin_notes: 'Approved via in-game panel.' } });
+    log(`Submission ${id.slice(0,8)} approved and committed to world.`, 'sys');
+    adminLoadSubs('pending');
+  } catch(e) { log(`Approve error: ${e.message}`, 'err'); }
+}
+
+async function adminRejectSub(id) {
+  const notes = prompt('Rejection reason (optional):') || 'Does not meet world standards.';
+  try {
+    await apiFetch(`/api/world/submissions/${id}/reject`, { method: 'POST', body: { admin_notes: notes } });
+    log(`Submission ${id.slice(0,8)} rejected.`, 'sys');
+    adminLoadSubs('pending');
+  } catch(e) { log(`Reject error: ${e.message}`, 'err'); }
 }
 
 async function adminCreateTemplate() {

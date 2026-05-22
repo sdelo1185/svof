@@ -12,7 +12,7 @@
  */
 
 import { getSession }   from '../../engine/playerManager.js';
-import { getExitsForRoom } from '../../engine/roomManager.js';
+import { getExitsForRoom, getRoomById, enterRoom, announceLeave } from '../../engine/roomManager.js';
 import { attackNpc, getNpcCurrentHp } from '../../engine/combatManager.js';
 import { GM, send, err, msg } from '../gmcp.js';
 import { getDb } from '../../db/database.js';
@@ -65,8 +65,16 @@ function handleFlee(io, socket) {
   const exits = getExitsForRoom(session.roomId).filter(x => !x.is_locked);
   if (!exits.length) { err(socket, 'There is nowhere to flee!'); return; }
 
-  const exit = exits[Math.floor(Math.random() * exits.length)];
-  socket.emit('move', { direction: exit.direction });   // re-use movement handler
+  const exit  = exits[Math.floor(Math.random() * exits.length)];
+  const toId  = exit.to_room_id;
+  const fromId = session.roomId;
+
+  announceLeave(io, socket, session, fromId, 'fled');
+  getDb().prepare('UPDATE characters SET current_room_id = ?, last_active = ? WHERE id = ?')
+    .run(toId, Date.now(), session.characterId);
+  send(socket, GM.MOVE_SUCCESS, { direction: exit.direction, room_id: toId });
+  enterRoom(io, socket, session, toId);
+  msg(socket, 'You flee the battle!');
 }
 
 // ─── equip ────────────────────────────────────────────────────────────────────
