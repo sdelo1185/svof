@@ -68,6 +68,13 @@ export function removeNpc(npcId, roomId) {
   return npc;
 }
 
+export function updateNpcImage(npcId, imageUrl) {
+  getDb().prepare('UPDATE npcs SET image_url = ? WHERE id = ?').run(imageUrl, npcId);
+  for (const [roomId, npcs] of roomNpcIndex) {
+    if (npcs.some(n => n.id === npcId)) { roomNpcIndex.delete(roomId); break; }
+  }
+}
+
 export function updateNpcDialogue(npcId, dialogue, updatedBy) {
   getDb().prepare('UPDATE npcs SET dialogue = ? WHERE id = ?')
     .run(JSON.stringify(dialogue), npcId);

@@ -30,7 +30,7 @@ import {
 } from '../../engine/roomManager.js';
 import { placeItem, removeItem, getItemsInRoom, getRoomCap, getItemCount } from '../../engine/itemManager.js';
 import { generateRoomDraft, storeDraft, getDraft, clearDraft, commitDraft } from '../../engine/worldBuilder.js';
-import { runWorldAgent } from '../../services/worldAgent.js';
+import { runWorldAgent, expandArea, generateNpcPortrait } from '../../services/worldAgent.js';
 import { generatePixelArtImage } from '../../services/imageGen.js';
 import { updateRoomImage } from '../../engine/roomManager.js';
 import { GM, send, msg, err } from '../gmcp.js';
@@ -61,8 +61,10 @@ export function registerAdminHandlers(io, socket) {
   socket.on('admin:ai:generate',  guard(handleAIGenerate));
   socket.on('admin:ai:commit',    guard(handleAICommit));
   socket.on('admin:ai:discard',   guard(handleAIDiscard));
-  socket.on('admin:agent:run',    guard(handleAgentRun));
+  socket.on('admin:agent:run',     guard(handleAgentRun));
+  socket.on('admin:agent:expand',  guard(handleAgentExpand));
   socket.on('admin:room:genimage', guard(handleGenRoomImage));
+  socket.on('admin:npc:genimage',  guard(handleGenNpcImage));
 }
 
 // ─── handlers ────────────────────────────────────────────────────────────────
@@ -230,6 +232,45 @@ async function handleAgentRun(session, { prompt, direction = 'n', room_count = 5
   msg(socket, `✓ ${summary}`);
   send(socket, GM.ADMIN_AGENT, { status: 'complete', ...result });
   send(socket, GM.ADMIN_ROOM, getAdminRoomOverlay(session.roomId));
+}
+
+async function handleAgentExpand(session, { prompt, direction = 'n', room_count = 3, include_npcs = true, include_items = true }) {
+  if (!prompt) throw new Error('prompt required.');
+  const socket = _getSocket(session.socketId);
+  msg(socket, `World Agent expanding area: "${prompt}"`);
+
+  let result;
+  try {
+    result = await expandArea(
+      { prompt, currentRoomId: session.roomId, exitDir: direction, roomCount: room_count, includeNpcs: include_npcs, includeItems: include_items },
+      (step, detail) => msg(socket, `[agent:${step}] ${detail}`),
+    );
+  } catch (e) {
+    send(socket, GM.ADMIN_AGENT, { status: 'error', message: e.message });
+    throw e;
+  }
+
+  msg(socket, `✓ "${result.area_name}": ${result.rooms.length} rooms, ${result.npcs.length} NPCs, ${result.items.length} items.`);
+  send(socket, GM.ADMIN_AGENT, { status: 'complete', ...result });
+  send(socket, GM.ADMIN_ROOM, getAdminRoomOverlay(session.roomId));
+}
+
+async function handleGenNpcImage(session, { npc_id }) {
+  if (!npc_id) throw new Error('npc_id required.');
+  const socket = _getSocket(session.socketId);
+  msg(socket, `Generating portrait for NPC ${npc_id.slice(0, 8)}…`);
+  const url = await generateNpcPortrait(npc_id);
+  if (url) {
+    msg(socket, `Portrait saved: ${url}`);
+    // Refresh room so portrait appears immediately
+    const { sendRoomInfo } = await import('../../engine/roomManager.js');
+    const { getSession } = await import('../../engine/playerManager.js');
+    for (const [, s] of _io.sockets.sockets) {
+      if (getSession(s.id)?.roomId === session.roomId) sendRoomInfo(s, session.roomId);
+    }
+  } else {
+    throw new Error('Portrait generation unavailable — check OPENAI_API_KEY.');
+  }
 }
 
 async function handleGenRoomImage(session) {

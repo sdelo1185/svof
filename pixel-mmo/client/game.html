@@ -577,32 +577,38 @@
       </div>
 
       <div class="admin-content" id="acAgent">
-        <div style="font-size:10px;color:var(--warn);margin-bottom:.5rem;line-height:1.6">
-          ✦ Autonomous builder — plans and commits rooms, NPCs and items in one step. No preview.
+        <!-- Mode toggle -->
+        <div style="display:flex;gap:.3rem;margin-bottom:.5rem">
+          <button id="agentModeNew" class="abtn" onclick="setAgentMode('new')" style="flex:1;color:var(--accent3)">✦ New Area</button>
+          <button id="agentModeExpand" class="abtn" onclick="setAgentMode('expand')" style="flex:1">⊕ Expand</button>
+        </div>
+        <div id="agentModeLabel" style="font-size:10px;color:var(--warn);margin-bottom:.5rem;line-height:1.5">
+          Builds a brand-new area from the current room. Commits rooms, NPCs, items and pixel art in one pass.
         </div>
         <div class="af"><label>Theme / prompt</label>
           <textarea id="agentPrompt" rows="3" placeholder="A crumbling lighthouse on jagged sea cliffs, haunted by the ghost of its last keeper..."></textarea>
         </div>
         <div class="arow">
-          <div class="af"><label>Extend dir</label>
+          <div class="af"><label>Exit dir</label>
             <select id="agentDir"><option>n</option><option>s</option><option>e</option><option>w</option><option>ne</option><option>nw</option><option>se</option><option>sw</option><option>u</option><option>d</option></select>
           </div>
           <div class="af"><label>Rooms</label>
-            <input type="number" id="agentRooms" value="5" min="2" max="12" />
+            <input type="number" id="agentRooms" value="5" min="1" max="12" />
           </div>
         </div>
         <div class="arow">
-          <div class="af"><label><input type="checkbox" id="agentNpcs" checked /> Place NPCs</label></div>
-          <div class="af"><label><input type="checkbox" id="agentItems" checked /> Place Items</label></div>
+          <div class="af"><label><input type="checkbox" id="agentNpcs" checked /> NPCs</label></div>
+          <div class="af"><label><input type="checkbox" id="agentItems" checked /> Items</label></div>
         </div>
         <button class="abtn" id="agentRunBtn" onclick="adminAgentRun()" style="color:var(--accent3);margin-top:.4rem">✦ RUN AGENT</button>
         <div id="agentProgress" style="display:none;margin-top:.6rem">
           <div style="font-size:10px;color:var(--muted);margin-bottom:.3rem">PROGRESS</div>
-          <div id="agentLog" style="font-size:10px;color:var(--text);line-height:1.8;max-height:140px;overflow-y:auto;background:var(--bg);padding:.4rem;border-radius:3px"></div>
+          <div id="agentLog" style="font-size:10px;color:var(--text);line-height:1.8;max-height:160px;overflow-y:auto;background:var(--bg);padding:.4rem;border-radius:3px"></div>
         </div>
         <div id="agentResult" style="display:none;margin-top:.5rem">
-          <div style="font-size:10px;color:var(--success);margin-bottom:.25rem">✓ AREA CREATED</div>
+          <div style="font-size:10px;color:var(--success);margin-bottom:.25rem">✓ COMPLETE</div>
           <div id="agentSummary" style="font-size:10px;color:var(--muted);line-height:1.7"></div>
+          <img id="agentEntryImage" src="" alt="" style="display:none;width:100%;image-rendering:pixelated;border-radius:3px;margin-top:.4rem;border:1px solid var(--border)" />
         </div>
       </div>
 
@@ -1242,18 +1248,25 @@ function renderNpcList() {
     const hostile = n.is_combatant ? ' npc-hostile' : '';
     const hpBar = n.is_combatant
       ? `<div class="npc-hp-bar" id="npc-hp-${n.id}"><div class="npc-hp-fill" style="width:100%"></div></div>` : '';
+    const portrait = n.image_url
+      ? `<img src="${n.image_url}" style="width:44px;height:44px;object-fit:cover;image-rendering:pixelated;border-radius:3px;border:1px solid var(--border2);flex-shrink:0" />`
+      : `<div style="width:44px;height:44px;background:var(--bg);border:1px solid var(--border);border-radius:3px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px">${n.is_combatant?'⚔':'👤'}</div>`;
     const btns = n.is_combatant
       ? `<button onclick="socket?.emit('attack',{npc_id:'${n.id}'})" style="font-size:10px;background:#3a1515;border:1px solid var(--hp);color:var(--hp);padding:1px 5px;cursor:pointer;border-radius:2px">attack</button>`
       : `<button onclick="socket?.emit('npc:talk',{npc_id:'${n.id}',message:'hello'})" style="font-size:10px;background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:1px 5px;cursor:pointer;border-radius:2px">talk</button>`;
-    return `<li>
-      <div class="pname${hostile}" style="cursor:pointer" onclick="clickNpc('${n.id}','${escapeHtml(n.name)}')">
-        ${escapeHtml(n.name)}${n.title?` <span style="color:var(--muted);font-size:10px">${escapeHtml(n.title)}</span>`:''}
-      </div>
-      <div class="pinfo">${n.race||''}${n.role?` · ${n.role}`:''}</div>
-      ${hpBar}
-      <div style="display:flex;gap:.3rem;margin-top:.2rem">
-        ${btns}
-        <button onclick="socket?.emit('npc:examine',{npc_id:'${n.id}'})" style="font-size:10px;background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:1px 5px;cursor:pointer;border-radius:2px">look</button>
+    return `<li style="display:flex;gap:.4rem;align-items:flex-start">
+      ${portrait}
+      <div style="flex:1;min-width:0">
+        <div class="pname${hostile}" style="cursor:pointer" onclick="clickNpc('${n.id}','${escapeHtml(n.name)}')">
+          ${escapeHtml(n.name)}${n.title?` <span style="color:var(--muted);font-size:10px">${escapeHtml(n.title)}</span>`:''}
+        </div>
+        <div class="pinfo">${n.race||''}${n.role?` · ${n.role}`:''}</div>
+        ${hpBar}
+        <div style="display:flex;gap:.3rem;margin-top:.2rem">
+          ${btns}
+          <button onclick="socket?.emit('npc:examine',{npc_id:'${n.id}'})" style="font-size:10px;background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:1px 5px;cursor:pointer;border-radius:2px">look</button>
+          ${isAdmin?`<button onclick="socket?.emit('admin:npc:genimage',{npc_id:'${n.id}'})" style="font-size:10px;background:var(--surface2);border:1px solid var(--border2);color:var(--accent2);padding:1px 5px;cursor:pointer;border-radius:2px" title="Generate portrait">🎨</button>`:''}
+        </div>
       </div>
     </li>`;
   }).join('');
@@ -1792,6 +1805,19 @@ function adminNpcDialogue() {
 }
 
 // ─── Autonomous World Agent ───────────────────────────────────────────────────
+let _agentMode = 'new';
+
+function setAgentMode(mode) {
+  _agentMode = mode;
+  document.getElementById('agentModeNew').style.color    = mode === 'new'    ? 'var(--accent3)' : '';
+  document.getElementById('agentModeExpand').style.color = mode === 'expand' ? 'var(--accent3)' : '';
+  document.getElementById('agentModeLabel').textContent  = mode === 'new'
+    ? 'Builds a brand-new area from the current room. Commits rooms, NPCs, items and pixel art in one pass.'
+    : 'Reads nearby rooms for context, then generates thematically consistent additions.';
+  const roomsInput = document.getElementById('agentRooms');
+  if (roomsInput && mode === 'expand') roomsInput.value = '3';
+}
+
 function adminAgentRun() {
   const prompt = document.getElementById('agentPrompt').value.trim();
   if (!prompt) { log('Agent: prompt required.', 'err'); return; }
@@ -1800,14 +1826,17 @@ function adminAgentRun() {
   document.getElementById('agentProgress').style.display = 'block';
   document.getElementById('agentResult').style.display = 'none';
   document.getElementById('agentLog').textContent = '';
+  const agentImg = document.getElementById('agentEntryImage');
+  if (agentImg) agentImg.style.display = 'none';
   adminTab('agent');
-  socket?.emit('admin:agent:run', {
+  const payload = {
     prompt,
-    direction: document.getElementById('agentDir').value,
-    room_count: Number(document.getElementById('agentRooms').value) || 5,
-    include_npcs: document.getElementById('agentNpcs').checked,
+    direction:     document.getElementById('agentDir').value,
+    room_count:    Number(document.getElementById('agentRooms').value) || 5,
+    include_npcs:  document.getElementById('agentNpcs').checked,
     include_items: document.getElementById('agentItems').checked,
-  });
+  };
+  socket?.emit(_agentMode === 'expand' ? 'admin:agent:expand' : 'admin:agent:run', payload);
 }
 
 function handleAgentResult(data) {
@@ -1815,11 +1844,15 @@ function handleAgentResult(data) {
   btn.disabled = false; btn.textContent = '✦ RUN AGENT';
   if (data.status === 'complete') {
     document.getElementById('agentResult').style.display = 'block';
+    const lore = data.lore ? `<em style="color:var(--dim)">${escapeHtml(data.lore)}</em><br><br>` : '';
     document.getElementById('agentSummary').innerHTML =
-      `<strong>${escapeHtml(data.area_name)}</strong><br>` +
+      `<strong style="color:var(--accent2)">${escapeHtml(data.area_name)}</strong><br>` +
       `${escapeHtml(data.theme_note)}<br><br>` +
+      lore +
       `${data.rooms?.length || 0} rooms &nbsp;·&nbsp; ${data.npcs?.length || 0} NPCs &nbsp;·&nbsp; ${data.items?.length || 0} items<br>` +
-      (data.entry_room_id ? `Entry: <span style="color:var(--dim)">${data.entry_room_id.slice(0,8)}</span>` : '');
+      (data.entry_room_id ? `<span style="color:var(--dim)">Entry: ${data.entry_room_id.slice(0,8)}</span>` : '');
+    const agentImg = document.getElementById('agentEntryImage');
+    if (agentImg && data.entry_image) { agentImg.src = data.entry_image; agentImg.style.display = ''; }
   } else if (data.status === 'error') {
     _agentLog(`ERROR: ${data.message}`);
   }

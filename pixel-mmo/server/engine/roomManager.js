@@ -147,7 +147,7 @@ export function sendRoomInfo(socket, roomId) {
       locked: !!x.is_locked,
     })),
     players,
-    npcs: npcs.map(n => ({ id: n.id, name: n.name, title: n.title, race: n.race, role: n.role })),
+    npcs: npcs.map(n => ({ id: n.id, name: n.name, title: n.title, race: n.race, role: n.role, is_combatant: !!n.is_combatant, image_url: n.image_url || null })),
     items: items.map(itemPacket),
   });
 }

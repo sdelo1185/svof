@@ -44,6 +44,9 @@ function runMigrations(db) {
     'room_image_v1': () => {
       try { db.exec('ALTER TABLE rooms ADD COLUMN image_url TEXT'); } catch { /* exists */ }
     },
+    'npc_portrait_v1': () => {
+      try { db.exec('ALTER TABLE npcs ADD COLUMN image_url TEXT'); } catch { /* exists */ }
+    },
   };
 
   for (const [name, run] of Object.entries(migrations)) {
