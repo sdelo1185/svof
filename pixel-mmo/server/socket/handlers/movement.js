@@ -1,51 +1,49 @@
 /**
- * Movement handler — player and admin navigation.
+ * Movement handler.
  *
- * Rate-limited to MAX_MOVES_PER_SEC per character.
- * Validates exit exists, door unlocked, then updates DB + in-memory state.
+ * enterRoom() in roomManager owns the complete transition:
+ *   playerManager → Socket.io → item cache → GMCP packets
+ * So this handler only needs to validate the exit, write to DB, then call enterRoom.
+ * announceLeave broadcasts departure from the old room before the transition.
+ *
+ * Rate: MAX_MOVES_PER_SEC per character.
  */
 
 import { getDb } from '../../db/database.js';
-import { enterRoom, leaveRoom, getRoomById, getExitsForRoom } from '../../engine/roomManager.js';
-import { trackMove, getSession } from '../../engine/playerManager.js';
-import { GM, send, msg, err } from '../gmcp.js';
+import { enterRoom, announceLeave, getRoomById, sendRoomInfo } from '../../engine/roomManager.js';
+import { getSession } from '../../engine/playerManager.js';
+import { GM, send, err } from '../gmcp.js';
 
 const MAX_MOVES_PER_SEC = 3;
 const MOVE_WINDOW_MS = 1000 / MAX_MOVES_PER_SEC;
-const lastMoveTime = new Map(); // socketId → timestamp
+const lastMoveTime = new Map(); // socketId → ms timestamp
 
 export function registerMovementHandlers(io, socket) {
   socket.on('move', (data) => handleMove(io, socket, data));
   socket.on('admin:teleport', (data) => handleTeleport(io, socket, data));
 }
 
-async function handleMove(io, socket, data) {
+function handleMove(io, socket, data) {
   const { direction } = data || {};
   if (!direction) return;
 
   // Rate limit
   const now = Date.now();
-  const last = lastMoveTime.get(socket.id) || 0;
-  if (now - last < MOVE_WINDOW_MS) {
+  if (now - (lastMoveTime.get(socket.id) ?? 0) < MOVE_WINDOW_MS) {
     send(socket, GM.MOVE_FAIL, { direction, reason: 'Moving too fast.' });
     return;
   }
   lastMoveTime.set(socket.id, now);
 
   const session = getSession(socket.id);
-  if (!session) return;
-
-  const db = getDb();
-  const fromRoomId = session.roomId;
-
-  if (!fromRoomId) {
-    send(socket, GM.MOVE_FAIL, { direction, reason: 'You are nowhere.' });
+  if (!session?.roomId) {
+    send(socket, GM.MOVE_FAIL, { direction, reason: 'You are not in a room.' });
     return;
   }
 
-  const exit = db.prepare(
+  const exit = getDb().prepare(
     'SELECT * FROM room_exits WHERE from_room_id = ? AND direction = ?'
-  ).get(fromRoomId, direction);
+  ).get(session.roomId, direction);
 
   if (!exit) {
     send(socket, GM.MOVE_FAIL, { direction, reason: 'There is no exit in that direction.' });
@@ -57,21 +55,22 @@ async function handleMove(io, socket, data) {
     return;
   }
 
+  const fromRoomId = session.roomId;
   const toRoomId = exit.to_room_id;
 
-  // Update memory state (before DB to ensure broadcast uses new room)
-  leaveRoom(io, socket, session, fromRoomId);
-  trackMove(socket.id, fromRoomId, toRoomId);
+  // Announce departure to the old room BEFORE the transition
+  announceLeave(io, socket, session, fromRoomId);
 
-  // Update DB
-  db.prepare('UPDATE characters SET current_room_id = ?, last_active = ? WHERE id = ?')
+  // Write to DB
+  getDb().prepare('UPDATE characters SET current_room_id = ?, last_active = ? WHERE id = ?')
     .run(toRoomId, Date.now(), session.characterId);
 
+  // Full transition: playerManager + Socket.io + item cache + GMCP
   send(socket, GM.MOVE_SUCCESS, { direction, room_id: toRoomId });
   enterRoom(io, socket, session, toRoomId);
 }
 
-async function handleTeleport(io, socket, data) {
+function handleTeleport(io, socket, data) {
   const session = getSession(socket.id);
   if (!session || !['admin','developer'].includes(session.role)) {
     err(socket, 'Unauthorized.');
@@ -84,15 +83,12 @@ async function handleTeleport(io, socket, data) {
   const targetRoom = getRoomById(room_id);
   if (!targetRoom) { err(socket, `Room ${room_id} not found.`); return; }
 
-  const fromRoomId = session.roomId;
-  if (fromRoomId) {
-    leaveRoom(io, socket, session, fromRoomId, 'teleported away');
+  if (session.roomId) {
+    announceLeave(io, socket, session, session.roomId, 'teleported away');
   }
-  trackMove(socket.id, fromRoomId, room_id);
 
   getDb().prepare('UPDATE characters SET current_room_id = ?, last_active = ? WHERE id = ?')
     .run(room_id, Date.now(), session.characterId);
 
-  msg(socket, `Teleported to ${targetRoom.name}.`);
   enterRoom(io, socket, session, room_id);
 }

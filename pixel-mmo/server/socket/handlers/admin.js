@@ -135,7 +135,7 @@ async function handlePlaceItem(session, { template_id, is_persistent = false, du
 
   if (!result.ok) throw new Error(result.error);
 
-  broadcastItemAdded(io, session.roomId, result.item);
+  broadcastItemAdded(_io, session.roomId, result.item);
 
   const socket = _getSocket(session.socketId);
   const cap = getRoomCap(session.roomId);
@@ -148,7 +148,7 @@ async function handleRemoveItem(session, { item_id }) {
   const removed = removeItem(item_id, session.roomId);
   if (!removed) throw new Error('Item not found in this room.');
 
-  broadcastItemRemoved(io, session.roomId, item_id);
+  broadcastItemRemoved(_io, session.roomId, item_id);
   msg(_getSocket(session.socketId), `Removed item ${item_id.slice(0,8)}.`);
 }
 
@@ -200,10 +200,9 @@ async function handleAIDiscard(session) {
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
-// io is captured from the outer scope via registerAdminHandlers closure
-let io;
-export function setIO(ioInstance) { io = ioInstance; }
+let _io;
+export function setIO(ioInstance) { _io = ioInstance; }
 
 function _getSocket(socketId) {
-  return io.sockets.sockets.get(socketId);
+  return _io.sockets.sockets.get(socketId);
 }

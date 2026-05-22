@@ -25,12 +25,11 @@ export function trackJoin(socketId, character, account) {
     class: character.class,
     level: character.level,
     role: account.role,
-    roomId: character.current_room_id,
+    roomId: null,   // enterRoom calls trackMove to set this correctly
     connectedAt: Date.now(),
     lastActivity: Date.now(),
   };
   onlineSessions.set(socketId, session);
-  if (character.current_room_id) _addToRoom(socketId, character.current_room_id);
   return session;
 }
 

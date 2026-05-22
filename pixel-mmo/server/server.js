@@ -34,6 +34,8 @@ app.use('/api/world',   worldRouter);
 app.use('/api/wb',      worldbuildingRouter);   // worldbuilding pipeline
 app.use('/api/wbadmin', adminRouter);           // submission review (legacy token auth)
 
+app.get('/game', (_, res) => res.sendFile('game.html', { root: join(__dir, '../client') }));
+
 app.get('/health', (_, res) => res.json({
   ok: true,
   time: new Date().toISOString(),
