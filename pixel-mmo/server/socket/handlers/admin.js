@@ -31,6 +31,8 @@ import {
 import { placeItem, removeItem, getItemsInRoom, getRoomCap, getItemCount } from '../../engine/itemManager.js';
 import { generateRoomDraft, storeDraft, getDraft, clearDraft, commitDraft } from '../../engine/worldBuilder.js';
 import { runWorldAgent } from '../../services/worldAgent.js';
+import { generatePixelArtImage } from '../../services/imageGen.js';
+import { updateRoomImage } from '../../engine/roomManager.js';
 import { GM, send, msg, err } from '../gmcp.js';
 
 export function registerAdminHandlers(io, socket) {
@@ -60,6 +62,7 @@ export function registerAdminHandlers(io, socket) {
   socket.on('admin:ai:commit',    guard(handleAICommit));
   socket.on('admin:ai:discard',   guard(handleAIDiscard));
   socket.on('admin:agent:run',    guard(handleAgentRun));
+  socket.on('admin:room:genimage', guard(handleGenRoomImage));
 }
 
 // ─── handlers ────────────────────────────────────────────────────────────────
@@ -227,6 +230,33 @@ async function handleAgentRun(session, { prompt, direction = 'n', room_count = 5
   msg(socket, `✓ ${summary}`);
   send(socket, GM.ADMIN_AGENT, { status: 'complete', ...result });
   send(socket, GM.ADMIN_ROOM, getAdminRoomOverlay(session.roomId));
+}
+
+async function handleGenRoomImage(session) {
+  const socket = _getSocket(session.socketId);
+  const db = getDb();
+  const room = db.prepare('SELECT * FROM rooms WHERE id = ?').get(session.roomId);
+  if (!room) throw new Error('Not in a valid room.');
+
+  msg(socket, `Generating pixel art for "${room.name}"…`);
+  const prompt =
+    `32-bit pixel art MMO scene: ${room.name}. ${room.short_desc || ''} ` +
+    `${room.terrain_type} terrain, game environment, vibrant retro palette, top-down perspective.`;
+
+  const { url, placeholder } = await generatePixelArtImage(prompt, room.id);
+  if (placeholder || !url) {
+    throw new Error('Image generation unavailable — check OPENAI_API_KEY in .env.');
+  }
+  updateRoomImage(room.id, url);
+  msg(socket, `Image saved: ${url}`);
+
+  // Push updated room info so image appears immediately
+  const { sendRoomInfo } = await import('../../engine/roomManager.js');
+  for (const [, s] of _io.sockets.sockets) {
+    const { getSession } = await import('../../engine/playerManager.js');
+    const sess = getSession(s.id);
+    if (sess?.roomId === session.roomId) sendRoomInfo(s, session.roomId);
+  }
 }
 
 // ─── helpers ─────────────────────────────────────────────────────────────────

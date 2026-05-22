@@ -146,7 +146,14 @@
     .side-content.active{display:flex;}
 
     /* ── Admin panel ── */
-    #adminPanel{width:270px;background:var(--surface);border-left:2px solid var(--danger);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;}
+    #adminPanel{position:fixed;top:0;right:0;bottom:0;width:290px;z-index:50;
+                background:var(--surface);border-left:2px solid var(--danger);
+                display:flex;flex-direction:column;overflow:hidden;
+                transform:translateX(100%);transition:transform .2s ease;}
+    #adminPanel.open{transform:translateX(0);}
+    #adminToggle{font-family:var(--pixel);font-size:7px;padding:2px 6px;background:var(--danger);
+                 color:#fff;border-radius:2px;margin-left:.5rem;cursor:pointer;border:none;
+                 letter-spacing:1px;}
     #adminPanel h2{font-family:var(--pixel);font-size:8px;color:var(--danger);padding:.5rem .75rem;border-bottom:1px solid var(--border);}
     .admin-tabs{display:flex;border-bottom:1px solid var(--border);}
     .admin-tab{flex:1;padding:.35rem;text-align:center;cursor:pointer;font-size:10px;color:var(--muted);border-bottom:2px solid transparent;}
@@ -344,6 +351,7 @@
     </div>
     <div id="statsDisplay" style="display:none;font-size:10px;color:var(--muted);margin-left:.3rem;cursor:default" title="Character stats"></div>
     <div id="roleTag" style="display:none">ADMIN</div>
+    <button id="adminToggle" style="display:none" onclick="toggleAdminPanel()">⚙ PANEL</button>
   </div>
 
   <!-- Play area -->
@@ -355,6 +363,7 @@
       <div id="roomInfo">
         <div id="roomName">Connecting...</div>
         <div id="roomDesc"></div>
+        <img id="roomImage" src="" alt="" style="display:none;width:100%;max-height:160px;object-fit:cover;image-rendering:pixelated;margin-top:.4rem;border-radius:3px;border:1px solid var(--border);" />
       </div>
       <div id="logArea"></div>
       <div id="exitsArea">
@@ -416,9 +425,12 @@
       </div>
     </div>
 
-    <!-- Admin panel -->
-    <div id="adminPanel" style="display:none">
-      <h2>⚙ ADMIN</h2>
+    <!-- Admin panel (slide-in overlay) -->
+    <div id="adminPanel">
+      <h2 style="display:flex;justify-content:space-between;align-items:center">
+        <span>⚙ ADMIN</span>
+        <button onclick="toggleAdminPanel()" style="background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;line-height:1">✕</button>
+      </h2>
       <div class="admin-tabs">
         <div class="admin-tab active" onclick="adminTab('room')">Room</div>
         <div class="admin-tab" onclick="adminTab('items')">Items</div>
@@ -476,6 +488,8 @@
           <div style="display:flex;gap:.35rem"><input type="text" id="tpTarget" style="flex:1" /><button class="abtn" style="width:auto;margin-top:0" onclick="adminTeleport()">GO</button></div>
         </div>
         <button class="abtn" onclick="adminLook()" style="margin-top:.5rem">↺ Refresh overlay</button>
+        <button class="abtn" onclick="socket?.emit('admin:room:genimage')" style="margin-top:.3rem;color:var(--accent2)">🎨 Generate Pixel Art</button>
+        <button class="abtn" onclick="adminCopyDigTemplate()" style="margin-top:.3rem;color:var(--accent3)" title="Paste a dig command template into the chat bar">📋 Dig Template</button>
       </div>
 
       <div class="admin-content" id="acItems">
@@ -1037,8 +1051,8 @@ function handleGMCP(module, data) {
       document.getElementById('charName').textContent = `${data.name} [${data.race} ${data.class} Lv.${data.level}]`;
       if (data.gold !== undefined) document.getElementById('goldVal').textContent = data.gold;
       isAdmin = ['admin','developer'].includes(data.role);
-      document.getElementById('roleTag').style.display   = isAdmin ? '' : 'none';
-      document.getElementById('adminPanel').style.display = isAdmin ? '' : 'none';
+      document.getElementById('roleTag').style.display    = isAdmin ? '' : 'none';
+      document.getElementById('adminToggle').style.display = isAdmin ? '' : 'none';
       if (data.stats) {
         charStats = data.stats;
         const s = data.stats;
@@ -1185,6 +1199,9 @@ function handleGMCP(module, data) {
 function renderRoom(room) {
   document.getElementById('roomName').textContent = room.name;
   document.getElementById('roomDesc').textContent = room.short_desc || '';
+  const img = document.getElementById('roomImage');
+  if (room.image_url) { img.src = room.image_url; img.style.display = ''; }
+  else { img.style.display = 'none'; img.src = ''; }
   const btns = document.getElementById('exitBtns');
   btns.innerHTML = '';
   if (room.exits?.length) {
@@ -1414,6 +1431,32 @@ function parseCommand(raw) {
     case 'west':  move('w'); break;
     case 'up':    move('u'); break;
     case 'down':  move('d'); break;
+    case 'dig': {
+      // dig <dir> name=.../terrain=.../desc=.../light=.../safe=0|1
+      const [digDir, ...kvParts] = rest;
+      if (!digDir || !kvParts.length) {
+        log('Usage: dig <dir> name=Room Name/terrain=forest/desc=Description/light=normal/safe=0', 'err');
+        return;
+      }
+      const kv = kvParts.join(' ');
+      const params = {};
+      kv.split('/').forEach(part => {
+        const eq = part.indexOf('=');
+        if (eq < 0) return;
+        params[part.slice(0, eq).trim()] = part.slice(eq + 1).trim();
+      });
+      if (!params.name) { log('dig: name= required', 'err'); return; }
+      socket?.emit('admin:dig', {
+        direction:    digDir,
+        name:         params.name,
+        short_desc:   params.desc    || params.short_desc || '',
+        terrain_type: params.terrain || 'plains',
+        light_level:  params.light   || 'normal',
+        safe_zone:    params.safe === '1' || params.safe === 'true',
+        indoor:       params.indoor === '1' || params.indoor === 'true',
+      });
+      break;
+    }
     default:
       log(`Unknown: ${cmd}. Try: say/tell/yell/emote, look, inv/equip, get/drop/examine, attack/flee/talk, n/s/e/w`, 'err');
   }
@@ -1477,6 +1520,21 @@ function sideTab(tab) {
 // ═══════════════════════════════════════════════════
 // Admin
 // ═══════════════════════════════════════════════════
+function adminCopyDigTemplate() {
+  const dirs = ['n','s','e','w','ne','nw','se','sw','u','d'];
+  const template = `dig n name=Room Name/terrain=plains/desc=A brief atmospheric description./light=normal/safe=0`;
+  const input = document.getElementById('cmdInput');
+  if (input) { input.value = template; input.focus(); input.select(); }
+  log('Dig template loaded. Edit then press Enter to create the room.', 'sys');
+  log('Fields: name / terrain=(city|forest|dungeon|cave|plains|mountain|desert|tundra|ocean|river|ethereal|divine) / desc / light=(bright|normal|dim|dark|pitch_black) / safe=(0|1) / indoor=(0|1)', 'sys');
+  log(`Directions: ${dirs.join(' | ')}`, 'sys');
+}
+
+function toggleAdminPanel() {
+  document.getElementById('adminPanel').classList.toggle('open');
+  if (document.getElementById('adminPanel').classList.contains('open')) adminLook();
+}
+
 function adminTab(tab) {
   const tabs=['room','items','npcs','ai','agent','subs'];
   document.querySelectorAll('.admin-tab').forEach((t,i) => t.classList.toggle('active', tabs[i]===tab));

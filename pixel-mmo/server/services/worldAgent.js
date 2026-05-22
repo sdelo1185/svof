@@ -13,9 +13,10 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk';
-import { createRoom, linkRooms, getRoomById } from '../engine/roomManager.js';
+import { createRoom, linkRooms, getRoomById, updateRoomImage } from '../engine/roomManager.js';
 import { placeNpc } from '../engine/npcManager.js';
 import { placeItem } from '../engine/itemManager.js';
+import { generatePixelArtImage } from './imageGen.js';
 import { getDb } from '../db/database.js';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -238,12 +239,35 @@ Rules:
     progressFn('items_done', `Placed ${createdItems.length} item(s).`);
   }
 
+  // ── Step 5: Generate pixel art cover image for the entry room ────────────────
+  const entryRoom = createdRooms[0];
+  if (entryRoom) {
+    progressFn('image', `Generating pixel art for "${entryRoom.name}"…`);
+    try {
+      const imagePrompt =
+        `32-bit pixel art MMO scene: ${entryRoom.name}. ${entryRoom.short_desc} ` +
+        `${plan.theme_note} ${entryRoom.terrain_type} terrain, game environment, ` +
+        `vibrant retro palette, top-down perspective.`;
+      const { url, placeholder } = await generatePixelArtImage(imagePrompt, entryRoom.id);
+      if (!placeholder && url) {
+        updateRoomImage(entryRoom.id, url);
+        entryRoom.image_url = url;
+        progressFn('image_done', `Cover image saved.`);
+      } else {
+        progressFn('image_done', `Image generation skipped (no OpenAI key).`);
+      }
+    } catch (e) {
+      progressFn('warn', `Image generation failed: ${e.message}`);
+    }
+  }
+
   return {
     area_name:     plan.area_name     || 'Unnamed Area',
     theme_note:    plan.theme_note    || '',
     rooms:         createdRooms,
     npcs:          createdNpcs,
     items:         createdItems,
-    entry_room_id: createdRooms[0]?.id ?? null,
+    entry_room_id: entryRoom?.id ?? null,
+    entry_image:   entryRoom?.image_url ?? null,
   };
 }

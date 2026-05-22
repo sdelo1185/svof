@@ -139,6 +139,7 @@ export function sendRoomInfo(socket, roomId) {
     indoor: !!room.indoor,
     safe_zone: !!room.safe_zone,
     light_level: room.light_level,
+    image_url: room.image_url || null,
     exits: exits.map(x => ({
       dir: x.direction,
       name: x.to_room_name,
@@ -192,6 +193,10 @@ export function updateRoom(roomId, fields, updatedBy) {
   getDb().prepare(`UPDATE rooms SET ${sets.join(', ')} WHERE id = ?`).run(...vals);
   _logAdminAction(updatedBy, 'update_room', 'room', roomId, fields);
   return getRoomById(roomId);
+}
+
+export function updateRoomImage(roomId, imageUrl) {
+  getDb().prepare('UPDATE rooms SET image_url = ? WHERE id = ?').run(imageUrl, roomId);
 }
 
 // ─── exit management ──────────────────────────────────────────────────────────
