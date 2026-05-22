@@ -184,9 +184,6 @@ router.get('/rooms/:id/npcs', (req, res) => {
 });
 
 router.post('/rooms/:id/npcs', requireAdmin, (req, res) => {
-  const { placeNpc } = require('../engine/npcManager.js');
-  // dynamic require works here since we're in CJS-compatible context
-  // Use ES import at top instead:
   res.status(501).json({ error: 'Use admin:npc:place socket command.' });
 });
 
