@@ -9,6 +9,8 @@ import { registerAdminHandlers, setIO as adminSetIO } from './handlers/admin.js'
 import { registerCommunicationHandlers } from './handlers/communication.js';
 import { registerInventoryHandlers, sendInventory, setIO as invSetIO } from './handlers/inventory.js';
 import { registerNpcHandlers, setIO as npcSetIO } from './handlers/npc.js';
+import { registerCombatHandlers } from './handlers/combat.js';
+import { setIO as combatSetIO } from '../engine/combatManager.js';
 import { broadcast, GM, send, err } from './gmcp.js';
 import { RACE_STATS, CLASS_STATS } from '../engine/raceStats.js';
 
@@ -22,6 +24,7 @@ export function createSocketServer(httpServer) {
   adminSetIO(io);
   invSetIO(io);
   npcSetIO(io);
+  combatSetIO(io);
 
   io.use(socketAuth);
 
@@ -94,13 +97,31 @@ export function createSocketServer(httpServer) {
     registerCommunicationHandlers(io, socket);
     registerInventoryHandlers(io, socket);
     registerNpcHandlers(io, socket);
+    registerCombatHandlers(io, socket);
 
     if (['admin', 'developer'].includes(account.role)) {
       registerAdminHandlers(io, socket);
     }
 
+    // ── rest: restore endurance over time ────────────────────────────────
+    const restInterval = setInterval(() => {
+      const sess = getSession(socket.id);
+      if (!sess?.characterId) return;
+      const db   = getDb();
+      const char = db.prepare('SELECT health,max_health,mana,max_mana,endurance,max_endurance FROM characters WHERE id = ?').get(sess.characterId);
+      if (!char) return;
+      const newHp  = Math.min(char.max_health,    char.health    + Math.ceil(char.max_health    * 0.02));
+      const newMp  = Math.min(char.max_mana,      char.mana      + Math.ceil(char.max_mana      * 0.03));
+      const newEp  = Math.min(char.max_endurance, char.endurance + Math.ceil(char.max_endurance * 0.05));
+      if (newHp !== char.health || newMp !== char.mana || newEp !== char.endurance) {
+        db.prepare('UPDATE characters SET health=?,mana=?,endurance=? WHERE id=?').run(newHp, newMp, newEp, sess.characterId);
+        send(socket, GM.CHAR_VITALS, { hp:newHp, maxhp:char.max_health, mp:newMp, maxmp:char.max_mana, ep:newEp, maxep:char.max_endurance });
+      }
+    }, 10_000);
+
     // ── disconnect ────────────────────────────────────────────────────────
     socket.on('disconnect', (reason) => {
+      clearInterval(restInterval);
       handleDisconnect(io, socket.id);
       console.log(`[socket] disconnect ${socket.id} reason=${reason}`);
     });

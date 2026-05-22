@@ -68,14 +68,21 @@ function handleAdminPlace(socket, data) {
   const session = getSession(socket.id);
   if (!session?.roomId) return;
 
-  const { name, title, description, race='human', role='citizen', dialogue=[] } = data || {};
+  const {
+    name, title, description, race='human', role='citizen', dialogue=[],
+    is_combatant=false, max_health=100, attack_power=10, armor=0,
+    experience_reward=25, respawn_seconds=300, gold_reward=0,
+  } = data || {};
   if (!name) return err(socket, 'name required.');
 
-  const npc = placeNpc(session.roomId, { name, title, description, race, role, dialogue }, session.characterId);
+  const npc = placeNpc(session.roomId, {
+    name, title, description, race, role, dialogue,
+    is_combatant, max_health, attack_power, armor,
+    experience_reward, respawn_seconds, gold_reward,
+  }, session.characterId);
 
-  // Broadcast NPC addition to room
   broadcast(_io, session.roomId, 'Room.Npcs', {
-    added: [{ id: npc.id, name: npc.name, title: npc.title, race: npc.race, role: npc.role }],
+    added: [{ id: npc.id, name: npc.name, title: npc.title, race: npc.race, role: npc.role, is_combatant: npc.is_combatant }],
   });
   msg(socket, `Placed NPC "${npc.name}" [${npc.id.slice(0,8)}].`);
 }

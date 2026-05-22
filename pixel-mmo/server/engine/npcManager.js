@@ -31,21 +31,30 @@ export function placeNpc(roomId, fields, createdBy) {
   const id = uuidv4();
   const db = getDb();
   db.prepare(`
-    INSERT INTO npcs (id, room_id, name, title, description, race, role, dialogue, is_active, created_by, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+    INSERT INTO npcs (id, room_id, name, title, description, race, role, dialogue,
+                      is_combatant, max_health, attack_power, armor,
+                      experience_reward, respawn_seconds, gold_reward,
+                      is_active, created_by, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
   `).run(
     id, roomId,
     fields.name,
-    fields.title   ?? null,
+    fields.title       ?? null,
     fields.description ?? null,
-    fields.race    ?? 'human',
-    fields.role    ?? 'citizen',
+    fields.race        ?? 'human',
+    fields.role        ?? 'citizen',
     JSON.stringify(fields.dialogue ?? []),
+    fields.is_combatant      ? 1 : 0,
+    fields.max_health        ?? 100,
+    fields.attack_power      ?? 10,
+    fields.armor             ?? 0,
+    fields.experience_reward ?? 25,
+    fields.respawn_seconds   ?? 300,
+    fields.gold_reward       ?? 0,
     createdBy,
     Date.now(),
   );
   const npc = _hydrate(db.prepare('SELECT * FROM npcs WHERE id = ?').get(id));
-  // Invalidate cache
   roomNpcIndex.delete(roomId);
   return npc;
 }
@@ -94,14 +103,22 @@ export function getNpcById(npcId) {
 
 function _hydrate(row) {
   return {
-    id:          row.id,
-    roomId:      row.room_id,
-    name:        row.name,
-    title:       row.title,
-    description: row.description,
-    race:        row.race,
-    role:        row.role,
-    dialogue:    JSON.parse(row.dialogue || '[]'),
-    isActive:    !!row.is_active,
+    id:                row.id,
+    room_id:           row.room_id,   // kept for combatManager respawn broadcast
+    roomId:            row.room_id,
+    name:              row.name,
+    title:             row.title,
+    description:       row.description,
+    race:              row.race,
+    role:              row.role,
+    dialogue:          JSON.parse(row.dialogue || '[]'),
+    isActive:          !!row.is_active,
+    is_combatant:      row.is_combatant ?? 0,
+    max_health:        row.max_health ?? 100,
+    attack_power:      row.attack_power ?? 10,
+    armor:             row.armor ?? 0,
+    experience_reward: row.experience_reward ?? 25,
+    respawn_seconds:   row.respawn_seconds ?? 300,
+    gold_reward:       row.gold_reward ?? 0,
   };
 }

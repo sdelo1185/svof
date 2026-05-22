@@ -167,6 +167,41 @@
     details summary{cursor:pointer;font-size:11px;color:var(--accent2);margin:.4rem 0 .3rem;user-select:none;}
 
     ::-webkit-scrollbar{width:4px;}::-webkit-scrollbar-track{background:var(--bg);}::-webkit-scrollbar-thumb{background:var(--border2);}
+
+    /* ── Combat log coloring ── */
+    .log-line.combat-hit{color:#e07050;}
+    .log-line.combat-miss{color:var(--dim);}
+    .log-line.combat-kill{color:var(--warn);}
+    .log-line.combat-death{color:var(--danger);font-weight:bold;}
+    .log-line.levelup{color:var(--accent);font-weight:bold;}
+    .log-line.xp{color:var(--success);font-size:11px;}
+    .npc-hostile{color:#e05050 !important;}
+    .npc-hp-bar{height:4px;background:var(--border);border-radius:2px;margin-top:2px;}
+    .npc-hp-fill{height:100%;background:var(--hp);border-radius:2px;transition:width .3s;}
+
+    /* ── Worldbuilding modal ── */
+    #wbModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:100;align-items:center;justify-content:center;}
+    #wbModal.open{display:flex;}
+    .wb-box{background:var(--surface);border:1px solid var(--border2);border-radius:6px;padding:1.5rem;width:520px;max-height:85vh;overflow-y:auto;}
+    .wb-box h2{font-family:var(--pixel);font-size:10px;color:var(--accent);margin-bottom:1rem;}
+    .wb-step{display:none;}.wb-step.active{display:block;}
+    .wb-preview-card{background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:.75rem;margin-top:.6rem;}
+    .wb-attr-row{display:flex;justify-content:space-between;font-size:11px;padding:.15rem 0;border-bottom:1px solid var(--border);}
+    .wb-attr-key{color:var(--muted);}
+    .wb-attr-val{color:var(--text);}
+    .wb-image{width:100%;border-radius:4px;margin-top:.5rem;image-rendering:pixelated;}
+    .wb-type-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.35rem;margin:.5rem 0;}
+    .wb-type-btn{background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:.4rem;cursor:pointer;text-align:center;font-size:11px;color:var(--muted);}
+    .wb-type-btn:hover,.wb-type-btn.active{border-color:var(--accent);color:var(--accent);background:#1e1f3d;}
+    .lore-warn{color:var(--warn);font-size:11px;margin-top:.4rem;line-height:1.5;}
+    .lore-ok{color:var(--success);font-size:11px;margin-top:.4rem;}
+
+    /* ── Equipment panel ── */
+    .equip-grid{display:grid;grid-template-columns:1fr 1fr;gap:.3rem;margin-top:.4rem;}
+    .equip-slot{background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:.3rem .4rem;font-size:10px;}
+    .equip-slot-name{color:var(--muted);}
+    .equip-slot-item{color:var(--accent2);}
+    .equip-slot-empty{color:var(--dim);font-style:italic;}
   </style>
 </head>
 <body>
@@ -276,13 +311,17 @@
       </div>
     </div>
 
-    <!-- Side: players / ground / inventory tabs -->
+    <!-- Side: players / npcs / ground / inv / equip tabs -->
     <div id="sidePanel">
+      <div style="padding:.3rem .5rem;border-bottom:1px solid var(--border);display:flex;gap:.3rem;flex-shrink:0">
+        <button onclick="openWBModal()" style="flex:1;background:var(--accent);border:none;color:#fff;font-family:var(--pixel);font-size:7px;padding:.3rem;cursor:pointer;border-radius:2px" title="Worldbuilder — submit creation ideas">✦ CREATE</button>
+      </div>
       <div class="side-tabs">
-        <div class="side-tab active" onclick="sideTab('players')">Players</div>
+        <div class="side-tab active" onclick="sideTab('players')">Here</div>
         <div class="side-tab" onclick="sideTab('npcs')">NPCs</div>
-        <div class="side-tab" onclick="sideTab('ground')">Ground</div>
-        <div class="side-tab" onclick="sideTab('inv')">Inv</div>
+        <div class="side-tab" onclick="sideTab('ground')">Floor</div>
+        <div class="side-tab" onclick="sideTab('inv')">Bag</div>
+        <div class="side-tab" onclick="sideTab('equip')">Equip</div>
       </div>
 
       <div class="side-content active" id="scPlayers">
@@ -296,6 +335,22 @@
       </div>
       <div class="side-content" id="scInv">
         <ul class="side-list" id="invList"><li class="empty-msg">empty</li></ul>
+      </div>
+      <div class="side-content" id="scEquip">
+        <div style="padding:.5rem .75rem">
+          <div class="equip-grid" id="equipGrid">
+            <div class="equip-slot"><div class="equip-slot-name">Mainhand</div><div class="equip-slot-item equip-slot-empty" id="eq-mainhand">—</div></div>
+            <div class="equip-slot"><div class="equip-slot-name">Offhand</div><div class="equip-slot-item equip-slot-empty" id="eq-offhand">—</div></div>
+            <div class="equip-slot"><div class="equip-slot-name">Head</div><div class="equip-slot-item equip-slot-empty" id="eq-head">—</div></div>
+            <div class="equip-slot"><div class="equip-slot-name">Chest</div><div class="equip-slot-item equip-slot-empty" id="eq-chest">—</div></div>
+            <div class="equip-slot"><div class="equip-slot-name">Legs</div><div class="equip-slot-item equip-slot-empty" id="eq-legs">—</div></div>
+            <div class="equip-slot"><div class="equip-slot-name">Hands</div><div class="equip-slot-item equip-slot-empty" id="eq-hands">—</div></div>
+            <div class="equip-slot"><div class="equip-slot-name">Feet</div><div class="equip-slot-item equip-slot-empty" id="eq-feet">—</div></div>
+            <div class="equip-slot"><div class="equip-slot-name">Ring</div><div class="equip-slot-item equip-slot-empty" id="eq-ring">—</div></div>
+            <div class="equip-slot"><div class="equip-slot-name">Neck</div><div class="equip-slot-item equip-slot-empty" id="eq-neck">—</div></div>
+          </div>
+          <button onclick="socket?.emit('equipment')" style="width:100%;margin-top:.5rem;background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:.3rem;cursor:pointer;font-size:11px;border-radius:2px">↺ Refresh</button>
+        </div>
       </div>
     </div>
 
@@ -400,6 +455,17 @@
             <div class="af"><label>Role</label><input type="text" id="npcRole" value="citizen" /></div>
           </div>
           <div class="af"><label>Description</label><textarea id="npcDesc" rows="2"></textarea></div>
+          <div class="af"><label><input type="checkbox" id="npcCombatant" /> Combatant (hostile)</label></div>
+          <div class="arow" id="npcCombatFields" style="display:none">
+            <div class="af"><label>HP</label><input type="number" id="npcMaxHp" value="100" min="1" /></div>
+            <div class="af"><label>ATK</label><input type="number" id="npcAtk" value="10" min="1" /></div>
+            <div class="af"><label>DEF</label><input type="number" id="npcArmor" value="0" min="0" /></div>
+          </div>
+          <div class="arow" id="npcRewardFields" style="display:none">
+            <div class="af"><label>XP</label><input type="number" id="npcXp" value="25" min="0" /></div>
+            <div class="af"><label>Gold</label><input type="number" id="npcGold" value="0" min="0" /></div>
+            <div class="af"><label>Respawn(s)</label><input type="number" id="npcRespawn" value="300" min="0" /></div>
+          </div>
           <div class="af"><label>Dialogue (JSON array)</label><textarea id="npcDialogue" rows="3" placeholder='[{"keywords":["hello"],"response":"Greetings, traveller."}]'></textarea></div>
           <button class="abtn" onclick="adminNpcPlace()">+ PLACE NPC</button>
         </details>
@@ -436,6 +502,61 @@
   </div><!-- /playArea -->
 </div><!-- /gameScreen -->
 
+<!-- ══════════════════════════ WORLDBUILDER MODAL -->
+<div id="wbModal">
+  <div class="wb-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
+      <h2 style="margin:0">✦ WORLDBUILDER</h2>
+      <button onclick="closeWBModal()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer">✕</button>
+    </div>
+
+    <!-- Step 1: Type + description -->
+    <div class="wb-step active" id="wbStep1">
+      <p style="font-size:11px;color:var(--muted);margin-bottom:.75rem;line-height:1.6">
+        Describe an item or room you'd like to add to the world. The AI will generate attributes and pixel art, then submit to the admin for review.
+      </p>
+      <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:.4rem">Type</label>
+      <div class="wb-type-grid">
+        <div class="wb-type-btn active" data-type="weapon">Weapon</div>
+        <div class="wb-type-btn" data-type="armor">Armor</div>
+        <div class="wb-type-btn" data-type="clothing">Clothing</div>
+        <div class="wb-type-btn" data-type="consumable">Consumable</div>
+        <div class="wb-type-btn" data-type="tool">Tool</div>
+        <div class="wb-type-btn" data-type="furniture">Furniture</div>
+        <div class="wb-type-btn" data-type="room">Room</div>
+      </div>
+      <label style="font-size:11px;color:var(--muted);display:block;margin:.6rem 0 .3rem">Description</label>
+      <textarea id="wbDescription" rows="5" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:3px;color:var(--text);padding:.5rem;font-family:var(--mono);font-size:12px;resize:vertical" placeholder="A worn iron sword, its blade etched with ancient runic patterns that glow faintly in darkness..."></textarea>
+      <p class="err-msg" id="wbErr" style="min-height:1em;margin-top:.4rem;font-size:11px;color:var(--danger)"></p>
+      <button class="btn btn-primary" onclick="wbPreview()" id="wbPreviewBtn" style="margin-top:.6rem">GENERATE PREVIEW</button>
+    </div>
+
+    <!-- Step 2: Preview + confirm -->
+    <div class="wb-step" id="wbStep2">
+      <div class="wb-preview-card" id="wbPreviewCard"></div>
+      <div class="lore-ok" id="wbLoreOk" style="display:none">✓ Lore consistent</div>
+      <div class="lore-warn" id="wbLoreWarn" style="display:none"></div>
+      <label style="font-size:11px;color:var(--muted);display:block;margin:.75rem 0 .3rem">Additional notes for admin</label>
+      <textarea id="wbNotes" rows="2" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:3px;color:var(--text);padding:.5rem;font-family:var(--mono);font-size:12px;resize:vertical" placeholder="Optional context or lore notes..."></textarea>
+      <div style="display:flex;gap:.5rem;margin-top:.75rem">
+        <button class="btn btn-muted" onclick="wbBack()" style="flex:1">← BACK</button>
+        <button class="btn btn-success" onclick="wbSubmit()" id="wbSubmitBtn" style="flex:2">SUBMIT FOR REVIEW</button>
+      </div>
+    </div>
+
+    <!-- Step 3: Success -->
+    <div class="wb-step" id="wbStep3">
+      <div style="text-align:center;padding:1.5rem 0">
+        <div style="font-size:28px;margin-bottom:.5rem">✦</div>
+        <div style="font-family:var(--pixel);font-size:10px;color:var(--success);margin-bottom:.75rem">SUBMITTED!</div>
+        <p style="font-size:12px;color:var(--muted);line-height:1.7" id="wbSuccessMsg">Your creation has been submitted for admin review. If approved, it will be added to the world.</p>
+        <p style="font-size:10px;color:var(--dim);margin-top:.5rem" id="wbSubmissionId"></p>
+      </div>
+      <button class="btn btn-muted" onclick="wbReset()" style="margin-top:.5rem">CREATE ANOTHER</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ═══════════════════════════════════════════════════
 // State
@@ -451,9 +572,15 @@ let isAdmin = false;
 let selectedRace = 'human';
 let selectedClass = 'adventurer';
 let npcs = new Map();
+let equipment = {};
 let charStats = {};
+let charLevel = 1;
 let phaserGame = null;
 let gameScene = null;
+
+// Worldbuilder state
+let wbType = 'weapon';
+let wbPreviewData = null;
 
 // ═══════════════════════════════════════════════════
 // Auth
@@ -727,6 +854,7 @@ function handleGMCP(module, data) {
     case 'Room.Npcs':
       (data.added||[]).forEach(n => npcs.set(n.id, n));
       (data.removed||[]).forEach(id => npcs.delete(id));
+      (data.respawned||[]).forEach(n => { npcs.set(n.id, n); log(`${n.name} has returned.`, 'sys'); });
       renderNpcList();
       break;
 
@@ -744,8 +872,11 @@ function handleGMCP(module, data) {
         el.title = `STR ${s.str}  DEX ${s.dex}  CON ${s.con}  INT ${s.int}  WIS ${s.wis}`;
         el.textContent = `STR${s.str} DEX${s.dex} CON${s.con} INT${s.int} WIS${s.wis}`;
       }
+      charLevel = data.level;
       if (data.lore?.race) log(`[Race] ${data.lore.race}`, 'sys');
       if (data.lore?.class) log(`[Class] ${data.lore.class}`, 'sys');
+      // Request equipment state on play
+      setTimeout(() => socket?.emit('equipment'), 500);
       break;
 
     case 'Char.Vitals':
@@ -765,6 +896,50 @@ function handleGMCP(module, data) {
       break;
     case 'Move.Fail':
       log(`Can't go ${data.direction}: ${data.reason}`, 'err');
+      break;
+
+    case 'Combat.Hit':
+      if (data.npcHp !== undefined) {
+        log(`You strike ${data.target} for ${data.damage} damage. (${data.npcHp}/${data.npcMaxHp} HP)`, 'combat-hit');
+        _updateNpcHpBar(data.target, data.npcHp, data.npcMaxHp);
+      } else {
+        log(`${data.attacker} strikes ${data.target} for ${data.damage} damage.`, 'combat-hit');
+        if (data.target === selfName) {
+          log(`  You take ${data.damage} damage!`, 'combat-hit');
+        }
+      }
+      break;
+    case 'Combat.Miss':
+      log(`${data.attacker === selfName ? 'You miss' : `${data.attacker} misses`} ${data.target}.`, 'combat-miss');
+      break;
+    case 'Combat.Kill':
+      if (data.killer === selfName) {
+        log(`You slay ${data.npc}! (+${data.xp} XP${data.goldGained>0?`, +${data.goldGained} gold`:''})`,'combat-kill');
+      } else {
+        log(`${data.killer} slays ${data.npc}.`, 'combat-kill');
+      }
+      npcs.delete(data.npcId);
+      renderNpcList();
+      break;
+    case 'Combat.Death':
+      if (data.name === selfName) {
+        log('YOU HAVE BEEN SLAIN. Respawning...', 'combat-death');
+      } else {
+        log(`${data.name} has been slain.`, 'combat-hit');
+      }
+      break;
+    case 'Combat.LevelUp':
+      charLevel = data.level;
+      log(`*** LEVEL UP! You are now level ${data.level}! ***`, 'levelup');
+      break;
+    case 'Char.XP':
+      charLevel = data.level;
+      log(`XP: ${data.xp}/${data.xpNeeded} (Lv.${data.level})`, 'xp');
+      break;
+    case 'Char.Equipment':
+      equipment = {};
+      (data.slots||[]).forEach(s => { equipment[s.slot] = s; });
+      renderEquipment();
       break;
 
     case 'Comm.Say':
@@ -853,27 +1028,66 @@ function renderGroundList() {
 function renderNpcList() {
   const list = document.getElementById('npcList');
   if (!npcs.size) { list.innerHTML='<li class="empty-msg">none</li>'; return; }
-  list.innerHTML = [...npcs.values()].map(n => `
-    <li>
-      <div class="pname" style="cursor:pointer" onclick="clickNpc('${n.id}','${escapeHtml(n.name)}')">
-        ${n.name}${n.title?` <span style="color:var(--muted)">${escapeHtml(n.title)}</span>`:''}
+  list.innerHTML = [...npcs.values()].map(n => {
+    const hostile = n.is_combatant ? ' npc-hostile' : '';
+    const hpBar = n.is_combatant
+      ? `<div class="npc-hp-bar" id="npc-hp-${n.id}"><div class="npc-hp-fill" style="width:100%"></div></div>` : '';
+    const btns = n.is_combatant
+      ? `<button onclick="socket?.emit('attack',{npc_id:'${n.id}'})" style="font-size:10px;background:#3a1515;border:1px solid var(--hp);color:var(--hp);padding:1px 5px;cursor:pointer;border-radius:2px">attack</button>`
+      : `<button onclick="socket?.emit('npc:talk',{npc_id:'${n.id}',message:'hello'})" style="font-size:10px;background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:1px 5px;cursor:pointer;border-radius:2px">talk</button>`;
+    return `<li>
+      <div class="pname${hostile}" style="cursor:pointer" onclick="clickNpc('${n.id}','${escapeHtml(n.name)}')">
+        ${escapeHtml(n.name)}${n.title?` <span style="color:var(--muted);font-size:10px">${escapeHtml(n.title)}</span>`:''}
       </div>
       <div class="pinfo">${n.race||''}${n.role?` · ${n.role}`:''}</div>
+      ${hpBar}
       <div style="display:flex;gap:.3rem;margin-top:.2rem">
-        <button onclick="socket?.emit('npc:talk',{npc_id:'${n.id}',message:'hello'})" style="font-size:10px;background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:1px 5px;cursor:pointer;border-radius:2px">talk</button>
+        ${btns}
         <button onclick="socket?.emit('npc:examine',{npc_id:'${n.id}'})" style="font-size:10px;background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:1px 5px;cursor:pointer;border-radius:2px">look</button>
       </div>
-    </li>`).join('');
+    </li>`;
+  }).join('');
+}
+
+function _updateNpcHpBar(npcName, currentHp, maxHp) {
+  const npc = [...npcs.values()].find(n => n.name === npcName);
+  if (!npc) return;
+  const bar = document.querySelector(`#npc-hp-${npc.id} .npc-hp-fill`);
+  if (bar) bar.style.width = `${Math.max(0,(currentHp/maxHp)*100)}%`;
+}
+
+function renderEquipment() {
+  const allSlots = ['mainhand','offhand','head','chest','legs','hands','feet','ring','neck'];
+  for (const slot of allSlots) {
+    const el = document.getElementById(`eq-${slot}`);
+    if (!el) continue;
+    if (equipment[slot]) {
+      el.textContent = equipment[slot].name;
+      el.className = 'equip-slot-item';
+      el.style.cursor = 'pointer';
+      el.onclick = () => {
+        if (confirm(`Unequip ${equipment[slot].name}?`)) socket?.emit('unequip', { slot });
+      };
+    } else {
+      el.textContent = '—';
+      el.className = 'equip-slot-item equip-slot-empty';
+      el.style.cursor = 'default';
+      el.onclick = null;
+    }
+  }
 }
 
 function renderInvList() {
   const list = document.getElementById('invList');
   if (!inventory.size) { list.innerHTML='<li class="empty-msg">empty</li>'; return; }
-  list.innerHTML = [...inventory.values()].map(i => `
-    <li style="cursor:pointer" onclick="clickInvItem('${i.id}','${escapeHtml(i.name)}')">
-      <div class="iname">${i.name}${i.equippedSlot?` [${i.equippedSlot}]`:''}</div>
-      <div class="iinfo">${i.type}${i.stackCount>1?` ×${i.stackCount}`:''}</div>
-    </li>`).join('');
+  list.innerHTML = [...inventory.values()].map(i => {
+    const equippable = ['weapon','armor','clothing'].includes(i.type);
+    const hint = i.equippedSlot ? `[${i.equippedSlot}] click=unequip` : (equippable ? 'click=equip' : 'click=drop');
+    return `<li style="cursor:pointer" onclick="clickInvItem('${i.id}','${escapeHtml(i.name)}')" title="${hint}">
+      <div class="iname" style="${i.equippedSlot?'color:var(--accent3)':''}">${escapeHtml(i.name)}${i.equippedSlot?` ✦`:''}</div>
+      <div class="iinfo">${i.type}${i.stackCount>1?` ×${i.stackCount}`:''} <span style="color:var(--dim);font-size:10px">${hint}</span></div>
+    </li>`;
+  }).join('');
 }
 
 function setBar(type, val, max) {
@@ -951,6 +1165,26 @@ function parseCommand(raw) {
       if (!arg) { log('Usage: look_npc <npc_id>','err'); return; }
       socket?.emit('npc:examine', { npc_id: arg });
       break;
+    case 'attack': case 'kill': case 'k':
+      if (!arg) { log('Attack what? Usage: attack <npc_id>','err'); return; }
+      socket?.emit('attack', { npc_id: arg });
+      break;
+    case 'flee': case 'fl':
+      socket?.emit('flee');
+      break;
+    case 'equip': case 'eq':
+      if (!arg) { sideTab('equip'); return; }
+      socket?.emit('equip', { item_id: arg });
+      sideTab('equip');
+      break;
+    case 'unequip': case 'uneq':
+      if (!arg) { log('Usage: unequip <slot>','err'); return; }
+      socket?.emit('unequip', { slot: arg });
+      break;
+    case 'equipment': case 'worn':
+      socket?.emit('equipment');
+      sideTab('equip');
+      break;
     case 'n': case 's': case 'e': case 'w':
     case 'ne': case 'nw': case 'se': case 'sw':
     case 'u': case 'd': case 'in': case 'out':
@@ -963,7 +1197,7 @@ function parseCommand(raw) {
     case 'up':    move('u'); break;
     case 'down':  move('d'); break;
     default:
-      log(`Unknown command: ${cmd}. Try: say, tell, yell, emote, look, inv, get, drop, examine, talk, n/s/e/w`, 'err');
+      log(`Unknown: ${cmd}. Try: say/tell/yell/emote, look, inv/equip, get/drop/examine, attack/flee/talk, n/s/e/w`, 'err');
   }
 }
 
@@ -983,7 +1217,16 @@ function clickGroundItem(id, name) {
   socket?.emit('item:get', { item_id: id });
 }
 function clickInvItem(id, name) {
-  socket?.emit('item:drop', { item_id: id });
+  // Right-click or shift-click to drop; normal click to equip (for equippable items) or examine
+  const item = inventory.get(id);
+  if (item && ['weapon','armor','clothing'].includes(item.type) && !item.equippedSlot) {
+    socket?.emit('equip', { item_id: id });
+    sideTab('equip');
+  } else if (item?.equippedSlot) {
+    socket?.emit('unequip', { slot: item.equippedSlot });
+  } else {
+    socket?.emit('item:drop', { item_id: id });
+  }
 }
 function clickNpc(id, name) {
   sideTab('npcs');
@@ -1008,7 +1251,7 @@ function log(text, type='') {
 // Side panel tabs
 // ═══════════════════════════════════════════════════
 function sideTab(tab) {
-  const tabs = ['players','npcs','ground','inv'];
+  const tabs = ['players','npcs','ground','inv','equip'];
   document.querySelectorAll('.side-tab').forEach((t,i) => t.classList.toggle('active', tabs[i]===tab));
   document.querySelectorAll('.side-content').forEach((c,i) => c.classList.toggle('active', tabs[i]===tab));
 }
@@ -1102,6 +1345,124 @@ function handleAIDraft(data) {
     log('Draft discarded.','sys');
   }
 }
+// ═══════════════════════════════════════════════════
+// Worldbuilder Modal
+// ═══════════════════════════════════════════════════
+function openWBModal() {
+  wbReset();
+  document.getElementById('wbModal').classList.add('open');
+}
+function closeWBModal() {
+  document.getElementById('wbModal').classList.remove('open');
+}
+function wbBack() {
+  _wbShowStep(1);
+}
+function wbReset() {
+  wbPreviewData = null;
+  wbType = 'weapon';
+  document.querySelectorAll('.wb-type-btn').forEach(b => b.classList.toggle('active', b.dataset.type === 'weapon'));
+  document.getElementById('wbDescription').value = '';
+  document.getElementById('wbErr').textContent = '';
+  document.getElementById('wbNotes').value = '';
+  _wbShowStep(1);
+}
+function _wbShowStep(n) {
+  document.querySelectorAll('.wb-step').forEach((s,i) => s.classList.toggle('active', i+1===n));
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.wb-type-btn').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('.wb-type-btn').forEach(x => x.classList.remove('active'));
+    b.classList.add('active'); wbType = b.dataset.type;
+  }));
+  document.getElementById('wbModal').addEventListener('click', e => {
+    if (e.target === document.getElementById('wbModal')) closeWBModal();
+  });
+});
+
+async function wbPreview() {
+  const desc = document.getElementById('wbDescription').value.trim();
+  if (!desc || desc.length < 10) {
+    document.getElementById('wbErr').textContent = 'Description must be at least 10 characters.';
+    return;
+  }
+  document.getElementById('wbErr').textContent = '';
+  const btn = document.getElementById('wbPreviewBtn');
+  btn.disabled = true; btn.textContent = 'GENERATING...';
+
+  try {
+    const data = await apiFetch('/api/wb/preview', {
+      method: 'POST',
+      body: { type: wbType, description: desc, creator_name: selfName || 'Unknown' },
+    });
+    wbPreviewData = data;
+    _renderWBPreview(data);
+    _wbShowStep(2);
+  } catch(e) {
+    document.getElementById('wbErr').textContent = e.message;
+  } finally {
+    btn.disabled = false; btn.textContent = 'GENERATE PREVIEW';
+  }
+}
+
+function _renderWBPreview(data) {
+  const card = document.getElementById('wbPreviewCard');
+  const attrs = data.attributes || {};
+  const rows = Object.entries(attrs)
+    .filter(([k]) => k !== 'name')
+    .map(([k,v]) => `<div class="wb-attr-row"><span class="wb-attr-key">${k}</span><span class="wb-attr-val">${typeof v === 'object' ? JSON.stringify(v) : v}</span></div>`)
+    .join('');
+
+  const name = attrs.name || data.description?.slice(0,40) || 'Unnamed';
+  card.innerHTML = `
+    <div style="font-family:var(--pixel);font-size:9px;color:var(--accent2);margin-bottom:.5rem">[${data.type.toUpperCase()}] ${escapeHtml(name)}</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:.5rem">${escapeHtml(data.description)}</div>
+    ${rows}
+    ${data.image_url ? `<img src="${data.image_url}" class="wb-image" alt="generated" />` : '<div style="font-size:10px;color:var(--dim);margin-top:.4rem;font-style:italic">Image will be generated on submission.</div>'}
+  `;
+
+  const lore = data.lore_validation;
+  if (lore) {
+    if (lore.passes) {
+      document.getElementById('wbLoreOk').style.display = '';
+      document.getElementById('wbLoreWarn').style.display = 'none';
+    } else {
+      document.getElementById('wbLoreOk').style.display = 'none';
+      const warn = document.getElementById('wbLoreWarn');
+      warn.style.display = '';
+      warn.textContent = `⚠ Lore concerns: ${(lore.concerns||[]).join('. ')} ${lore.suggestions?.length ? '— ' + lore.suggestions.join('. ') : ''}`;
+    }
+  }
+}
+
+async function wbSubmit() {
+  if (!wbPreviewData) return;
+  const btn = document.getElementById('wbSubmitBtn');
+  btn.disabled = true; btn.textContent = 'SUBMITTING...';
+  try {
+    const result = await apiFetch('/api/wb/submit', {
+      method: 'POST',
+      body: {
+        type: wbPreviewData.type,
+        description: wbPreviewData.description,
+        creator_name: selfName || 'Unknown',
+        attributes: wbPreviewData.attributes,
+        image_prompt: wbPreviewData.image_prompt,
+        lore_notes: document.getElementById('wbNotes').value.trim() || null,
+      },
+    });
+    document.getElementById('wbSubmissionId').textContent = `Submission ID: ${result.id}`;
+    _wbShowStep(3);
+    log(`Worldbuilder: "${wbPreviewData.attributes?.name||wbPreviewData.type}" submitted for review.`, 'sys');
+  } catch(e) {
+    document.getElementById('wbErr').textContent = e.message;
+    _wbShowStep(1);
+  } finally {
+    btn.disabled = false; btn.textContent = 'SUBMIT FOR REVIEW';
+  }
+}
+
 function adminAICommit() { socket?.emit('admin:ai:commit'); }
 function adminAIDiscard() { document.getElementById('aiDraftPreview').style.display='none'; socket?.emit('admin:ai:discard'); }
 
@@ -1113,6 +1474,7 @@ function adminNpcPlace() {
   if (raw) {
     try { dialogue = JSON.parse(raw); } catch { log('Dialogue must be valid JSON','err'); return; }
   }
+  const isCombatant = document.getElementById('npcCombatant').checked;
   socket?.emit('admin:npc:place', {
     name,
     title: document.getElementById('npcTitle').value.trim() || null,
@@ -1120,8 +1482,24 @@ function adminNpcPlace() {
     role: document.getElementById('npcRole').value.trim() || 'citizen',
     description: document.getElementById('npcDesc').value.trim() || null,
     dialogue,
+    is_combatant: isCombatant,
+    max_health:        isCombatant ? Number(document.getElementById('npcMaxHp').value)  || 100 : 100,
+    attack_power:      isCombatant ? Number(document.getElementById('npcAtk').value)    || 10  : 10,
+    armor:             isCombatant ? Number(document.getElementById('npcArmor').value)  || 0   : 0,
+    experience_reward: isCombatant ? Number(document.getElementById('npcXp').value)     || 25  : 25,
+    gold_reward:       isCombatant ? Number(document.getElementById('npcGold').value)   || 0   : 0,
+    respawn_seconds:   isCombatant ? Number(document.getElementById('npcRespawn').value)|| 300 : 300,
   });
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+  const cb = document.getElementById('npcCombatant');
+  if (cb) cb.addEventListener('change', () => {
+    const show = cb.checked;
+    document.getElementById('npcCombatFields').style.display = show ? '' : 'none';
+    document.getElementById('npcRewardFields').style.display = show ? '' : 'none';
+  });
+});
 function adminNpcRemove() {
   const id = document.getElementById('removeNpcId').value.trim();
   if (!id) return;
