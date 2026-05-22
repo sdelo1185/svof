@@ -11,8 +11,8 @@ A 32-bit pixel art MMO inspired by Achaea: Dreams of Divine Lands — with AI-as
 ### Step 1 — Get the code
 
 ```bash
-git clone https://github.com/sdelo1185/svof.git
-cd svof/pixel-mmo/server
+git clone https://github.com/sdelo1185/pixel-mmo.git
+cd pixel-mmo/server
 ```
 
 ### Step 2 — Install packages
