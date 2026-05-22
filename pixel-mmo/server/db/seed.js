@@ -128,11 +128,11 @@ export function seedWorld() {
     return id;
   };
 
-  const woodenSword  = itemTpl({ name:'Wooden Sword',   type:'weapon', weight:2, description:'A practice blade of solid hardwood. Better than your fists.',    attributes:{ damage_bonus:3, equip_slot:'mainhand' } });
-  const rustyDagger  = itemTpl({ name:'Rusty Dagger',   type:'weapon', weight:1, description:'A short blade marred with rust. Sharp enough to do the job.',     attributes:{ damage_bonus:2, equip_slot:'mainhand' } });
-  const ironSword    = itemTpl({ name:'Iron Sword',     type:'weapon', weight:3, description:'A reliable iron longsword — the adventurer\'s staple.',            attributes:{ damage_bonus:6, equip_slot:'mainhand' } });
-  const leatherArmor = itemTpl({ name:'Leather Armour', type:'armor',  weight:4, description:'Cured leather shaped into protective armour. Light and flexible.', attributes:{ armor_bonus:4, equip_slot:'chest' } });
-  const clothRobe    = itemTpl({ name:'Cloth Robe',     type:'clothing',weight:2,description:'A simple robe favoured by mages and priests.',                     attributes:{ armor_bonus:1, mp_bonus:10, equip_slot:'chest' } });
+  const woodenSword  = itemTpl({ name:'Wooden Sword',   type:'weapon', weight:2, description:'A practice blade of solid hardwood. Better than your fists.',    attributes:{ damage_bonus:3, equip_slot:'mainhand', visual:{ weapon_type:'sword',  color:'#8B7355' } } });
+  const rustyDagger  = itemTpl({ name:'Rusty Dagger',   type:'weapon', weight:1, description:'A short blade marred with rust. Sharp enough to do the job.',     attributes:{ damage_bonus:2, equip_slot:'mainhand', visual:{ weapon_type:'dagger', color:'#8B5E3C' } } });
+  const ironSword    = itemTpl({ name:'Iron Sword',     type:'weapon', weight:3, description:'A reliable iron longsword — the adventurer\'s staple.',            attributes:{ damage_bonus:6, equip_slot:'mainhand', visual:{ weapon_type:'sword',  color:'#A8A8B0' } } });
+  const leatherArmor = itemTpl({ name:'Leather Armour', type:'armor',  weight:4, description:'Cured leather shaped into protective armour. Light and flexible.', attributes:{ armor_bonus:4, equip_slot:'chest',    visual:{ armor_type:'leather', color:'#7B5A3A' } } });
+  const clothRobe    = itemTpl({ name:'Cloth Robe',     type:'clothing',weight:2,description:'A simple robe favoured by mages and priests.',                     attributes:{ armor_bonus:1, mp_bonus:10, equip_slot:'chest', visual:{ armor_type:'robe', color:'#6B4FA0' } } });
   const healthPotion = itemTpl({ name:'Health Potion',  type:'consumable', weight:1, stackable:true, maxStack:10, description:'A red vial that rapidly restores 50 HP when drunk.', attributes:{ heal_hp:50 } });
   const manaPotion   = itemTpl({ name:'Mana Potion',    type:'consumable', weight:1, stackable:true, maxStack:10, description:'A blue vial that restores 50 MP when drunk.',        attributes:{ heal_mp:50 } });
   const bread        = itemTpl({ name:'Loaf of Bread',  type:'consumable', weight:1, stackable:true, maxStack:5, description:'Hearty bread from the market bakery. Restores 20 HP.',attributes:{ heal_hp:20 } });

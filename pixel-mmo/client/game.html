@@ -697,6 +697,8 @@ let npcs = new Map();
 let equipment = {};
 let charStats = {};
 let charLevel = 1;
+let charRace  = 'human';
+let charClass = 'adventurer';
 let phaserGame = null;
 let gameScene = null;
 
@@ -827,6 +829,159 @@ const TERRAIN_ACCENT = {
   void:0x2a3050,
 };
 
+// ─── Character sprite drawing helpers ────────────────────────────────────────
+
+// Skin tone per race (hex string → used in CSS; converted to number for Phaser)
+const _RACE_SKIN = {
+  human:    '#d4a574', elf:      '#c8d4a0', dwarf:    '#c89060',
+  gnome:    '#b0c890', halfling: '#d4b080', orc:      '#90b060',
+  troll:    '#789060', undead:   '#b0b8a8', merfolk:  '#90b8c8',
+  celestial:'#e8d8b0',
+};
+
+// Body color accent per class (used when no armor equipped)
+const _CLASS_BODY = {
+  adventurer:'#7c6af7', warrior:'#8a4a3a', knight:'#5a6a8a', paladin:'#8a7a3a',
+  ranger:'#4a7a4a', rogue:'#4a3a6a', assassin:'#3a2a4a', bard:'#7a4a6a',
+  mage:'#4a5a8a', wizard:'#3a4a7a', sorcerer:'#6a3a8a', warlock:'#4a2a5a',
+  druid:'#4a6a3a', shaman:'#5a6a4a', cleric:'#7a7a4a', priest:'#8a7a5a',
+  monk:'#6a5a3a', berserker:'#8a3a2a', necromancer:'#3a4a3a', enchanter:'#6a4a7a',
+  summoner:'#5a4a7a', alchemist:'#5a7a4a', artificer:'#5a5a6a',
+};
+
+/**
+ * Draw a simple 3-part pixel character at (cx,cy).
+ * appearance: { race, bodyColor, weaponType, weaponColor, armorColor }
+ * scale: 1.0 for self, 0.75 for others
+ */
+function _drawCharSprite(g, cx, cy, appearance, scale) {
+  g.clear();
+  const sc = scale;
+  const skin = parseInt((_RACE_SKIN[appearance.race] || _RACE_SKIN.human).replace('#',''), 16);
+  const body = parseInt((appearance.armorColor || appearance.bodyColor || '#7c6af7').replace('#',''), 16);
+
+  // Head (7w × 6h)
+  const hw = Math.round(7 * sc), hh = Math.round(6 * sc);
+  g.fillStyle(skin, 1);
+  g.fillRect(cx - Math.floor(hw/2), cy - Math.round(16*sc) - hh, hw, hh);
+
+  // Eyes — 1px each, slightly inside head
+  g.fillStyle(0x111111, 1);
+  const eyeY = cy - Math.round(16*sc) - hh + Math.round(2*sc);
+  g.fillRect(cx - Math.round(2*sc), eyeY, Math.max(1, Math.round(sc)), Math.max(1, Math.round(sc)));
+  g.fillRect(cx + Math.round(1*sc), eyeY, Math.max(1, Math.round(sc)), Math.max(1, Math.round(sc)));
+
+  // Body (10w × 9h)
+  const bw = Math.round(10 * sc), bh = Math.round(9 * sc);
+  g.fillStyle(body, 1);
+  g.fillRect(cx - Math.floor(bw/2), cy - Math.round(16*sc), bw, bh);
+
+  // Legs (two 4w × 7h blocks, small gap)
+  const lw = Math.round(4 * sc), lh = Math.round(7 * sc);
+  const legTop = cy - Math.round(16*sc) + bh;
+  g.fillStyle(skin, 0.85);
+  g.fillRect(cx - Math.round(5*sc), legTop, lw, lh);
+  g.fillRect(cx + Math.round(1*sc), legTop, lw, lh);
+
+  // Weapon (if equipped)
+  if (appearance.weaponType) {
+    const wc = parseInt((appearance.weaponColor || '#aaaaaa').replace('#',''), 16);
+    _drawWeapon(g, cx, cy, appearance.weaponType, wc, sc);
+  }
+}
+
+function _drawWeapon(g, cx, cy, wtype, color, sc) {
+  g.fillStyle(color, 1);
+  const ox = cx + Math.round(8 * sc); // offset to right of body
+  const baseY = cy - Math.round(10 * sc);
+
+  if (wtype === 'sword') {
+    // Blade — tall thin rect
+    g.fillRect(ox, baseY - Math.round(12*sc), Math.max(2, Math.round(2*sc)), Math.round(14*sc));
+    // Guard — wider short rect
+    g.fillStyle(0x888866, 1);
+    g.fillRect(ox - Math.round(2*sc), baseY + Math.round(2*sc), Math.max(6, Math.round(6*sc)), Math.max(2, Math.round(2*sc)));
+    // Handle
+    g.fillStyle(0x5a3a1a, 1);
+    g.fillRect(ox, baseY + Math.round(4*sc), Math.max(2, Math.round(2*sc)), Math.round(4*sc));
+
+  } else if (wtype === 'dagger') {
+    // Short blade
+    g.fillRect(ox, baseY - Math.round(6*sc), Math.max(2, Math.round(2*sc)), Math.round(8*sc));
+    // Guard
+    g.fillStyle(0x666655, 1);
+    g.fillRect(ox - Math.round(1*sc), baseY + Math.round(2*sc), Math.max(4, Math.round(4*sc)), Math.max(2, Math.round(2*sc)));
+
+  } else if (wtype === 'staff') {
+    // Tall pole
+    g.fillRect(ox + Math.round(1*sc), baseY - Math.round(16*sc), Math.max(2, Math.round(2*sc)), Math.round(22*sc));
+    // Orb at top
+    g.fillStyle(0x9060d0, 1);
+    g.fillCircle(ox + Math.round(2*sc), baseY - Math.round(16*sc), Math.round(4*sc));
+
+  } else if (wtype === 'axe') {
+    // Handle
+    g.fillRect(ox + Math.round(1*sc), baseY - Math.round(10*sc), Math.max(2, Math.round(2*sc)), Math.round(14*sc));
+    // Axe head
+    g.fillRect(ox - Math.round(2*sc), baseY - Math.round(10*sc), Math.max(6, Math.round(6*sc)), Math.round(6*sc));
+
+  } else if (wtype === 'mace') {
+    // Handle
+    g.fillRect(ox + Math.round(1*sc), baseY - Math.round(8*sc), Math.max(2, Math.round(2*sc)), Math.round(12*sc));
+    // Head — thick block
+    g.fillRect(ox - Math.round(2*sc), baseY - Math.round(12*sc), Math.max(6, Math.round(6*sc)), Math.max(5, Math.round(5*sc)));
+
+  } else if (wtype === 'bow') {
+    // Bow curve — draw as arc approximation using rects
+    g.fillStyle(0x7a5a2a, 1);
+    g.fillRect(ox, baseY - Math.round(12*sc), Math.max(2,Math.round(2*sc)), Math.round(4*sc));
+    g.fillRect(ox + Math.round(2*sc), baseY - Math.round(8*sc), Math.max(2,Math.round(2*sc)), Math.round(12*sc));
+    g.fillRect(ox, baseY + Math.round(4*sc), Math.max(2,Math.round(2*sc)), Math.round(4*sc));
+    // String
+    g.fillStyle(0xc8b880, 0.7);
+    g.fillRect(ox - Math.round(1*sc), baseY - Math.round(12*sc), Math.max(1,Math.round(sc)), Math.round(24*sc));
+  }
+}
+
+/** Simpler sprite for other players — just colored head+body, no weapon details */
+function _drawSimplePlayerSprite(g, cx, cy, skinHex) {
+  const sc = 0.75;
+  g.clear();
+  // Head
+  g.fillStyle(skinHex, 1);
+  g.fillRect(cx - 3, cy - 17, 6, 5);
+  // Body
+  g.fillStyle(0x6af7c8, 1);
+  g.fillRect(cx - 4, cy - 12, 8, 7);
+  // Legs
+  g.fillStyle(skinHex, 0.85);
+  g.fillRect(cx - 4, cy - 5, 3, 5);
+  g.fillRect(cx + 1, cy - 5, 3, 5);
+}
+
+/** Compute visual appearance from current equipment map */
+function computeAppearance(race, cls, equipmentMap) {
+  const result = {
+    race:        race  || 'human',
+    bodyColor:   _CLASS_BODY[cls] || _CLASS_BODY.adventurer,
+    weaponType:  null,
+    weaponColor: '#aaaaaa',
+    armorColor:  null,
+  };
+  const mainhand = equipmentMap?.mainhand;
+  if (mainhand?.attributes?.visual?.weapon_type) {
+    result.weaponType  = mainhand.attributes.visual.weapon_type;
+    result.weaponColor = mainhand.attributes.visual.color || '#aaaaaa';
+  }
+  const chest = equipmentMap?.chest;
+  if (chest?.attributes?.visual?.color) {
+    result.armorColor = chest.attributes.visual.color;
+  }
+  return result;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 function initPhaser(mountEl) {
   const W = mountEl.clientWidth || 640;
   const H = 240;
@@ -838,7 +993,7 @@ function initPhaser(mountEl) {
       gameScene = this;
       this.terrain = 'void';
       this.playerSprites = new Map(); // name → sprite
-      this.selfSprite = null;
+      this.selfGfx = null;
       this.selfName = '';
 
       // Background
@@ -856,9 +1011,11 @@ function initPhaser(mountEl) {
       // Player sprites group
       this.playerGroup = this.add.group();
 
-      // Self sprite placeholder
-      this.selfSprite = this.add.rectangle(W/2, H/2, 20, 24, 0x7c6af7);
-      this.selfLabel  = this.add.text(W/2, H/2-18, '', { fontSize:'9px', fill:'#d4d8f0', fontFamily:'Share Tech Mono' }).setOrigin(0.5);
+      // Self sprite — drawn procedurally via Graphics
+      this.selfGfx    = this.add.graphics();
+      this.selfLabel  = this.add.text(W/2, H/2-22, '', { fontSize:'9px', fill:'#d4d8f0', fontFamily:'Share Tech Mono' }).setOrigin(0.5);
+      this.selfAppearance = { race:'human', bodyColor:'#7c6af7', weaponType:null, weaponColor:'#aaaaaa', armorColor:null };
+      _drawCharSprite(this.selfGfx, W/2, H/2, this.selfAppearance, 1.0);
 
       // Light overlay for dark rooms
       this.lightOverlay = this.add.rectangle(W/2, H/2, W, H, 0x000000, 0);
@@ -895,7 +1052,7 @@ function initPhaser(mountEl) {
       // Move light overlay to top
       this.children.bringToTop(this.lightOverlay);
       this.children.bringToTop(this.playerGroup);
-      this.children.bringToTop(this.selfSprite);
+      this.children.bringToTop(this.selfGfx);
       this.children.bringToTop(this.selfLabel);
       this.children.bringToTop(this.minimapGroup);
     }
@@ -954,12 +1111,22 @@ function initPhaser(mountEl) {
         const angle = (i / Math.max(arr.length, 1)) * Math.PI * 2;
         const x = cx + Math.cos(angle) * radius;
         const y = cy + Math.sin(angle) * radius * 0.6;
-        const sprite = this.add.rectangle(x, y, 16, 20, 0x6af7c8);
-        const label  = this.add.text(x, y-15, p.name.slice(0,8), { fontSize:'8px', fill:'#6af7c8', fontFamily:'Share Tech Mono' }).setOrigin(0.5);
-        this.playerGroup.addMultiple([sprite, label]);
+        const g = this.add.graphics();
+        const skinHex = parseInt((_RACE_SKIN[p.race] || _RACE_SKIN.human).replace('#',''), 16);
+        _drawSimplePlayerSprite(g, x, y, skinHex);
+        const label = this.add.text(x, y-16, p.name.slice(0,8), { fontSize:'8px', fill:'#6af7c8', fontFamily:'Share Tech Mono' }).setOrigin(0.5);
+        this.playerGroup.addMultiple([g, label]);
       });
       // Self label
       this.selfLabel.setText(selfName.slice(0,8));
+    }
+
+    updateSelfAppearance(appearance) {
+      this.selfAppearance = { ...this.selfAppearance, ...appearance };
+      this.selfGfx.clear();
+      _drawCharSprite(this.selfGfx, W/2, H/2, this.selfAppearance, 1.0);
+      this.children.bringToTop(this.selfGfx);
+      this.children.bringToTop(this.selfLabel);
     }
   }
 
@@ -1054,6 +1221,8 @@ function handleGMCP(module, data) {
 
     case 'Char.Status':
       selfName = data.name;
+      charRace  = data.race  || charRace;
+      charClass = data.class || charClass;
       document.getElementById('charName').textContent = `${data.name} [${data.race} ${data.class} Lv.${data.level}]`;
       if (data.gold !== undefined) document.getElementById('goldVal').textContent = data.gold;
       isAdmin = ['admin','developer'].includes(data.role);
@@ -1072,6 +1241,8 @@ function handleGMCP(module, data) {
       if (data.lore?.class) log(`[Class] ${data.lore.class}`, 'sys');
       // Request equipment and skills on play
       setTimeout(() => { socket?.emit('equipment'); socket?.emit('skills'); }, 500);
+      // Update sprite with race/class colours (equipment not yet loaded)
+      if (gameScene) gameScene.updateSelfAppearance(computeAppearance(charRace, charClass, equipment));
       break;
 
     case 'Char.Vitals':
@@ -1139,6 +1310,7 @@ function handleGMCP(module, data) {
       equipment = {};
       (data.slots||[]).forEach(s => { equipment[s.slot] = s; });
       renderEquipment();
+      if (gameScene) gameScene.updateSelfAppearance(computeAppearance(charRace, charClass, equipment));
       break;
     case 'Char.Skills':
       renderSkillList(data.class, data.skills);
