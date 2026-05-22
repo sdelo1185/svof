@@ -19,16 +19,31 @@ export const RACE_STATS = {
 };
 
 export const CLASS_STATS = {
-  adventurer: { hp_bonus:0,   mp_bonus:0,  ep_bonus:0,  atk_bonus:2,  lore:'A wanderer between paths.' },
-  magi:       { hp_bonus:-10, mp_bonus:30, ep_bonus:0,  atk_bonus:-3, lore:'Wielders of elemental destruction and the Logos.' },
-  monk:       { hp_bonus:20,  mp_bonus:0,  ep_bonus:30, atk_bonus:4,  lore:'Masters of unarmed combat and inner discipline.' },
-  paladin:    { hp_bonus:20,  mp_bonus:10, ep_bonus:10, atk_bonus:3,  lore:'Holy knights sworn to the Light.' },
-  serpentlord:{ hp_bonus:0,   mp_bonus:10, ep_bonus:10, atk_bonus:3,  lore:'Venomous assassins of House Ashtan.' },
-  occultist:  { hp_bonus:-10, mp_bonus:40, ep_bonus:0,  atk_bonus:-4, lore:'Binders of demons and wielders of chaos.' },
-  bard:       { hp_bonus:0,   mp_bonus:20, ep_bonus:10, atk_bonus:0,  lore:'Virtuosos who weave music into reality.' },
-  blademaster:{ hp_bonus:10,  mp_bonus:0,  ep_bonus:20, atk_bonus:5,  lore:'Duellists of unmatched blade technique.' },
-  druid:      { hp_bonus:10,  mp_bonus:20, ep_bonus:10, atk_bonus:0,  lore:'Guardians of Eleusis and the natural order.' },
-  priest:     { hp_bonus:10,  mp_bonus:20, ep_bonus:0,  atk_bonus:1,  lore:'Devoted healers and warriors of the Divine.' },
+  // ── Original ten ─────────────────────────────────────────────────────────────
+  adventurer:   { hp_bonus:0,   mp_bonus:0,  ep_bonus:0,  atk_bonus:2,  lore:'A wanderer between paths.' },
+  magi:         { hp_bonus:-10, mp_bonus:30, ep_bonus:0,  atk_bonus:-3, lore:'Wielders of elemental destruction and the Logos.' },
+  monk:         { hp_bonus:20,  mp_bonus:0,  ep_bonus:30, atk_bonus:4,  lore:'Masters of unarmed combat and inner discipline.' },
+  paladin:      { hp_bonus:20,  mp_bonus:10, ep_bonus:10, atk_bonus:3,  lore:'Holy knights sworn to the Light.' },
+  serpentlord:  { hp_bonus:0,   mp_bonus:10, ep_bonus:10, atk_bonus:3,  lore:'Venomous assassins of House Ashtan.' },
+  occultist:    { hp_bonus:-10, mp_bonus:40, ep_bonus:0,  atk_bonus:-4, lore:'Binders of demons and wielders of chaos.' },
+  bard:         { hp_bonus:0,   mp_bonus:20, ep_bonus:10, atk_bonus:0,  lore:'Virtuosos who weave music into reality.' },
+  blademaster:  { hp_bonus:10,  mp_bonus:0,  ep_bonus:20, atk_bonus:5,  lore:'Duellists of unmatched blade technique.' },
+  druid:        { hp_bonus:10,  mp_bonus:20, ep_bonus:10, atk_bonus:0,  lore:'Guardians of Eleusis and the natural order.' },
+  priest:       { hp_bonus:10,  mp_bonus:20, ep_bonus:0,  atk_bonus:1,  lore:'Devoted healers and warriors of the Divine.' },
+  // ── Achaea-expanded classes ───────────────────────────────────────────────────
+  alchemist:    { hp_bonus:-10, mp_bonus:30, ep_bonus:0,  atk_bonus:-2, lore:'Masters of alchemy who wield the ether and alchemical energies to afflict and transmute.' },
+  apostate:     { hp_bonus:-15, mp_bonus:40, ep_bonus:0,  atk_bonus:-3, lore:'Dark necromancers who bind demonic forces and wield Evileye to unravel the soul.' },
+  depthswalker: { hp_bonus:-5,  mp_bonus:35, ep_bonus:0,  atk_bonus:-1, lore:'Walkers between moments who bend time and shadow to unmake their foes.' },
+  infernal:     { hp_bonus:20,  mp_bonus:10, ep_bonus:0,  atk_bonus:4,  lore:'Dark knights bound to demonic pacts, fusing weapon mastery with malignant sorcery.' },
+  jester:       { hp_bonus:0,   mp_bonus:10, ep_bonus:20, atk_bonus:2,  lore:'Illusionist rogues who confound, trick, and destroy with equal flair.' },
+  pariah:       { hp_bonus:-5,  mp_bonus:20, ep_bonus:0,  atk_bonus:-1, lore:'Spreaders of pestilence who turn the body against itself through Charnel arts.' },
+  psion:        { hp_bonus:-10, mp_bonus:40, ep_bonus:0,  atk_bonus:-3, lore:'Mental weavers who reshape reality through pure psychic force and emulation.' },
+  runewarden:   { hp_bonus:15,  mp_bonus:15, ep_bonus:10, atk_bonus:3,  lore:'Warriors who inscribe ancient runes upon blade and body to amplify their might.' },
+  sentinel:     { hp_bonus:10,  mp_bonus:10, ep_bonus:20, atk_bonus:2,  lore:'Woodland guardians who blend spear, beast-form, and keen survival skills.' },
+  serpent:      { hp_bonus:0,   mp_bonus:0,  ep_bonus:30, atk_bonus:3,  lore:'Shadow assassins of the Underworld who strike unseen with venom and hypnosis.' },
+  shaman:       { hp_bonus:0,   mp_bonus:30, ep_bonus:0,  atk_bonus:-1, lore:'Spirit-callers who weave Vodun curses and commune with the ethereal dead.' },
+  sylvan:       { hp_bonus:5,   mp_bonus:25, ep_bonus:10, atk_bonus:-1, lore:'Forest mages of Eleusis who command weather and propagate the living world.' },
+  unnameable:   { hp_bonus:25,  mp_bonus:0,  ep_bonus:20, atk_bonus:6,  lore:'Chosen of the Unnameable — chaos incarnate, wielding Anathema and Dominion.' },
 };
 
 export const VALID_RACES   = Object.keys(RACE_STATS);

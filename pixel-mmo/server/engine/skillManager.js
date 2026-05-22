@@ -244,6 +244,425 @@ export const SKILLS = {
       msg(socket, `Holy wrath strikes ${target.name} for ${dmg}!`);
     },
   },
+
+  // ── Alchemist ────────────────────────────────────────────────────────────────
+  miasma: {
+    name:'Miasma', class:['alchemist'], mpCost:30, epCost:0, cooldownMs:8000, targetType:'npc',
+    description:'Release a toxic vapour cloud dealing poison damage.',
+    effect({ io, socket, session, target, db }) {
+      const dmg = 12 + Math.floor(Math.random() * 12);
+      broadcast(io, session.roomId, GM.COMBAT_HIT, { attacker:session.name, target:target.name, damage:dmg });
+      _damageNpc(io, socket, session, target, dmg, db);
+      broadcast(io, session.roomId, GM.SERVER_MSG, { text:`A toxic miasma engulfs ${target.name}!` });
+    },
+  },
+  causticbolt: {
+    name:'Caustic Bolt', class:['alchemist'], mpCost:20, epCost:0, cooldownMs:4000, targetType:'npc',
+    description:'Launch a bolt of acid dealing moderate damage.',
+    effect({ io, socket, session, target, db }) {
+      const dmg = 8 + Math.floor(Math.random() * 10);
+      broadcast(io, session.roomId, GM.COMBAT_HIT, { attacker:session.name, target:target.name, damage:dmg });
+      _damageNpc(io, socket, session, target, dmg, db);
+      msg(socket, `Your caustic bolt splashes ${target.name} for ${dmg}!`);
+    },
+  },
+  transmute: {
+    name:'Transmute', class:['alchemist'], mpCost:40, epCost:0, cooldownMs:60000, targetType:'self',
+    description:'Transmute inner energies to restore 30% HP.',
+    effect({ char, db, session, socket }) {
+      const r = Math.ceil(char.max_health * 0.30);
+      const hp = Math.min(char.max_health, char.health + r);
+      db.prepare('UPDATE characters SET health=? WHERE id=?').run(hp, session.characterId);
+      _vitals(socket, { ...char, health:hp });
+      msg(socket, `Alchemical transmutation restores ${r} HP.`);
+    },
+  },
+
+  // ── Apostate ─────────────────────────────────────────────────────────────────
+  deathaura: {
+    name:'Death Aura', class:['apostate'], mpCost:30, epCost:0, cooldownMs:6000, targetType:'npc',
+    description:'Shroud yourself in necrotic energy, damaging a nearby foe.',
+    effect({ io, socket, session, target, db }) {
+      const dmg = 10 + Math.floor(Math.random() * 12);
+      broadcast(io, session.roomId, GM.COMBAT_HIT, { attacker:session.name, target:target.name, damage:dmg });
+      _damageNpc(io, socket, session, target, dmg, db);
+      broadcast(io, session.roomId, GM.SERVER_MSG, { text:`Dark necrotic energy lashes ${target.name}!` });
+    },
+  },
+  boneshatter: {
+    name:'Boneshatter', class:['apostate'], mpCost:40, epCost:10, cooldownMs:12000, targetType:'npc',
+    description:'Channel demonic force to shatter bone and deal heavy damage.',
+    effect({ io, socket, session, target, db }) {
+      const dmg = 20 + Math.floor(Math.random() * 15);
+      broadcast(io, session.roomId, GM.COMBAT_HIT, { attacker:session.name, target:target.name, damage:dmg });
+      _damageNpc(io, socket, session, target, dmg, db);
+      msg(socket, `Your Boneshatter crushes ${target.name} for ${dmg}!`);
+    },
+  },
+  evileye: {
+    name:'Evileye', class:['apostate'], mpCost:25, epCost:0, cooldownMs:9000, targetType:'npc',
+    description:'Lock eyes with a foe, dealing psychic necrotic damage.',
+    effect({ io, socket, session, target, db }) {
+      const dmg = 14 + Math.floor(Math.random() * 10);
+      broadcast(io, session.roomId, GM.COMBAT_HIT, { attacker:session.name, target:target.name, damage:dmg });
+      _damageNpc(io, socket, session, target, dmg, db);
+      msg(socket, `Your Evileye withers ${target.name} for ${dmg}!`);
+    },
+  },
+
+  // ── Depthswalker ─────────────────────────────────────────────────────────────
+  timelock: {
+    name:'Timelock', class:['depthswalker'], mpCost:35, epCost:0, cooldownMs:20000, targetType:'npc',
+    description:'Freeze a foe in a temporal bubble, stunning them briefly.',
+    effect({ io, session, socket, target }) {
+      broadcast(io, session.roomId, GM.SERVER_MSG, { text:`${target.name} is locked in temporal stasis!` });
+      msg(socket, `You lock ${target.name} in time.`);
+    },
+  },
+  voidstep: {
+    name:'Voidstep', class:['depthswalker'], mpCost:20, epCost:15, cooldownMs:18000, targetType:'self',
+    description:'Step through the void to escape combat and restore 10% EP.',
+    effect({ char, db, session, socket }) {
+      const r = Math.ceil(char.max_endurance * 0.10);
+      const ep = Math.min(char.max_endurance, char.endurance + r);
+      db.prepare('UPDATE characters SET endurance=? WHERE id=?').run(ep, session.characterId);
+      _vitals(socket, { ...char, endurance:ep });
+      msg(socket, `You step through the void, recovering ${r} EP.`);
+      send(socket, GM.SERVER_MSG, { text:'Voidstep: combat readied for escape.', type:'buff' });
+    },
+  },
+  shadowmerge: {
+    name:'Shadow Merge', class:['depthswalker'], mpCost:30, epCost:0, cooldownMs:45000, targetType:'npc',
+    description:'Merge with shadow to deliver a precision strike.',
+    effect({ io, socket, session, target, db }) {
+      const dmg = 18 + Math.floor(Math.random() * 14);
+      broadcast(io, session.roomId, GM.COMBAT_HIT, { attacker:session.name, target:target.name, damage:dmg });
+      _damageNpc(io, socket, session, target, dmg, db);
+      msg(socket, `Emerging from shadow you strike ${target.name} for ${dmg}!`);
+    },
+  },
+
+  // ── Infernal ─────────────────────────────────────────────────────────────────
+  demonfire: {
+    name:'Demonfire', class:['infernal'], mpCost:25, epCost:0, cooldownMs:6000, targetType:'npc',
+    description:'Summon hellish flames to scorch an enemy.',
+    effect({ io, socket, session, target, db }) {
+      const dmg = 14 + Math.floor(Math.random() * 14);
+      broadcast(io, session.roomId, GM.COMBAT_HIT, { attacker:session.name, target:target.name, damage:dmg });
+      _damageNpc(io, socket, session, target, dmg, db);
+      broadcast(io, session.roomId, GM.SERVER_MSG, { text:`Hellfire engulfs ${target.name}!` });
+    },
+  },
+  soulrend: {
+    name:'Soul Rend', class:['infernal'], mpCost:35, epCost:0, cooldownMs:10000, targetType:'npc',
+    description:'Tear the soul of an enemy, stealing their vitality.',
+    effect({ io, socket, session, target, char, db }) {
+      const dmg = 12 + Math.floor(Math.random() * 10);
+      _damageNpc(io, socket, session, target, dmg, db);
+      const heal = Math.ceil(dmg * 0.5);
+      const hp = Math.min(char.max_health, char.health + heal);
+      db.prepare('UPDATE characters SET health=? WHERE id=?').run(hp, session.characterId);
+      _vitals(socket, { ...char, health:hp });
+      msg(socket, `You rend ${target.name}'s soul for ${dmg}, absorbing ${heal} HP.`);
+    },
+  },
+  malignblade: {
+    name:'Malign Blade', class:['infernal'], mpCost:20, epCost:20, cooldownMs:8000, targetType:'npc',
+    description:'A cursed weapon strike dripping with dark energy.',
+    effect({ io, socket, session, target, db }) {
+      const dmg = 16 + Math.floor(Math.random() * 12);
+      broadcast(io, session.roomId, GM.COMBAT_HIT, { attacker:session.name, target:target.name, damage:dmg });
+      _damageNpc(io, socket, session, target, dmg, db);
+      msg(socket, `Your malign blade cleaves ${target.name} for ${dmg}!`);
+    },
+  },
+
+  // ── Jester ───────────────────────────────────────────────────────────────────
+  confuse: {
+    name:'Confuse', class:['jester'], mpCost:20, epCost:10, cooldownMs:15000, targetType:'npc',
+    description:'Bewilder an enemy with illusions, disorienting them.',
+    effect({ io, session, socket, target }) {
+      broadcast(io, session.roomId, GM.SERVER_MSG, { text:`${target.name} looks bewildered and confused!` });
+      msg(socket, `You confuse ${target.name} with a dazzling display.`);
+    },
+  },
+  smokebomb: {
+    name:'Smoke Bomb', class:['jester'], mpCost:15, epCost:25, cooldownMs:20000, targetType:'self',
+    description:'Vanish in a cloud of smoke, recovering 15% EP.',
+    effect({ char, db, session, socket }) {
+      const r = Math.ceil(char.max_endurance * 0.15);
+      const ep = Math.min(char.max_endurance, char.endurance + r);
+      db.prepare('UPDATE characters SET endurance=? WHERE id=?').run(ep, session.characterId);
+      _vitals(socket, { ...char, endurance:ep });
+      msg(socket, `You vanish in smoke, recovering ${r} EP.`);
+      send(socket, GM.SERVER_MSG, { text:'Smokebomb active — evasion boosted.', type:'buff' });
+    },
+  },
+  puppeteer: {
+    name:'Puppeteer', class:['jester'], mpCost:30, epCost:0, cooldownMs:25000, targetType:'npc',
+    description:'Pull the strings of a foe, causing them to stumble and take damage.',
+    effect({ io, socket, session, target, db }) {
+      const dmg = 8 + Math.floor(Math.random() * 8);
+      broadcast(io, session.roomId, GM.COMBAT_HIT, { attacker:session.name, target:target.name, damage:dmg });
+      _damageNpc(io, socket, session, target, dmg, db);
+      broadcast(io, session.roomId, GM.SERVER_MSG, { text:`${target.name} stumbles like a puppet!` });
+    },
+  },
+
+  // ── Pariah ───────────────────────────────────────────────────────────────────
+  plague: {
+    name:'Plague', class:['pariah'], mpCost:25, epCost:0, cooldownMs:10000, targetType:'npc',
+    description:'Infect a target with a wasting disease that deals ongoing damage.',
+    effect({ io, socket, session, target, db }) {
+      const dmg = 8 + Math.floor(Math.random() * 10);
+      broadcast(io, session.roomId, GM.COMBAT_HIT, { attacker:session.name, target:target.name, damage:dmg });
+      _damageNpc(io, socket, session, target, dmg, db);
+      broadcast(io, session.roomId, GM.SERVER_MSG, { text:`A plague spreads across ${target.name}!` });
+    },
+  },
+  pestwave: {
+    name:'Pestilence Wave', class:['pariah'], mpCost:40, epCost:0, cooldownMs:20000, targetType:'npc',
+    description:'Release a wave of disease — heavy damage.',
+    effect({ io, socket, session, target, db }) {
+      const dmg = 18 + Math.floor(Math.random() * 14);
+      broadcast(io, session.roomId, GM.COMBAT_HIT, { attacker:session.name, target:target.name, damage:dmg });
+      _damageNpc(io, socket, session, target, dmg, db);
+      msg(socket, `A wave of pestilence crashes into ${target.name} for ${dmg}!`);
+    },
+  },
+  mortify: {
+    name:'Mortify', class:['pariah'], mpCost:20, epCost:0, cooldownMs:8000, targetType:'npc',
+    description:'Wither the flesh of an enemy with necrotic decay.',
+    effect({ io, socket, session, target, db }) {
+      const dmg = 12 + Math.floor(Math.random() * 8);
+      _damageNpc(io, socket, session, target, dmg, db);
+      msg(socket, `You mortify ${target.name}'s flesh for ${dmg}.`);
+    },
+  },
+
+  // ── Psion ────────────────────────────────────────────────────────────────────
+  mindblast: {
+    name:'Mind Blast', class:['psion'], mpCost:30, epCost:0, cooldownMs:5000, targetType:'npc',
+    description:'Unleash a psionic shockwave that ignores armour.',
+    effect({ io, socket, session, target, db }) {
+      const dmg = 14 + Math.floor(Math.random() * 14);
+      broadcast(io, session.roomId, GM.COMBAT_HIT, { attacker:session.name, target:target.name, damage:dmg });
+      _damageNpc(io, socket, session, target, dmg, db);
+      msg(socket, `Your mind blast tears through ${target.name} for ${dmg}!`);
+    },
+  },
+  weave: {
+    name:'Weave', class:['psion'], mpCost:20, epCost:0, cooldownMs:15000, targetType:'npc',
+    description:'Bind a foe in mental threads, dealing psychic damage.',
+    effect({ io, socket, session, target, db }) {
+      const dmg = 10 + Math.floor(Math.random() * 8);
+      _damageNpc(io, socket, session, target, dmg, db);
+      broadcast(io, session.roomId, GM.SERVER_MSG, { text:`${target.name} is caught in psychic weave!` });
+      msg(socket, `Your weave snares ${target.name} for ${dmg}.`);
+    },
+  },
+  psionicsurge: {
+    name:'Psionic Surge', class:['psion'], mpCost:45, epCost:0, cooldownMs:30000, targetType:'self',
+    description:'Channel inner psionic energy, restoring 25% MP.',
+    effect({ char, db, session, socket }) {
+      const r = Math.ceil(char.max_mana * 0.25);
+      const mp = Math.min(char.max_mana, char.mana + r);
+      db.prepare('UPDATE characters SET mana=? WHERE id=?').run(mp, session.characterId);
+      _vitals(socket, { ...char, mana:mp });
+      msg(socket, `Psionic surge restores ${r} MP.`);
+    },
+  },
+
+  // ── Runewarden ───────────────────────────────────────────────────────────────
+  runestrike: {
+    name:'Runestrike', class:['runewarden'], mpCost:20, epCost:15, cooldownMs:7000, targetType:'npc',
+    description:'An empowered weapon strike channelling active runes.',
+    effect({ io, socket, session, target, db }) {
+      const dmg = 16 + Math.floor(Math.random() * 12);
+      broadcast(io, session.roomId, GM.COMBAT_HIT, { attacker:session.name, target:target.name, damage:dmg });
+      _damageNpc(io, socket, session, target, dmg, db);
+      msg(socket, `Glowing runes amplify your strike for ${dmg}!`);
+    },
+  },
+  valkyrieward: {
+    name:'Valkyrie Ward', class:['runewarden'], mpCost:30, epCost:0, cooldownMs:60000, targetType:'self',
+    description:'Inscribe a warding rune granting temporary damage reduction.',
+    effect({ socket }) {
+      msg(socket, 'You inscribe a Valkyrie Ward — damage reduced for 30 seconds.');
+      send(socket, GM.SERVER_MSG, { text:'Valkyrie Ward active (damage -20% for 30s).', type:'buff' });
+    },
+  },
+  runebind: {
+    name:'Runebind', class:['runewarden'], mpCost:25, epCost:0, cooldownMs:18000, targetType:'npc',
+    description:'Bind an enemy in glowing runic chains dealing moderate damage.',
+    effect({ io, socket, session, target, db }) {
+      const dmg = 12 + Math.floor(Math.random() * 10);
+      _damageNpc(io, socket, session, target, dmg, db);
+      broadcast(io, session.roomId, GM.SERVER_MSG, { text:`Runic chains ensnare ${target.name}!` });
+      msg(socket, `You bind ${target.name} in runes for ${dmg}.`);
+    },
+  },
+
+  // ── Sentinel ─────────────────────────────────────────────────────────────────
+  spearstrike: {
+    name:'Spear Strike', class:['sentinel'], mpCost:10, epCost:20, cooldownMs:5000, targetType:'npc',
+    description:'Drive your spear into the enemy with piercing force.',
+    effect({ io, socket, session, target, db }) {
+      const dmg = 14 + Math.floor(Math.random() * 12);
+      broadcast(io, session.roomId, GM.COMBAT_HIT, { attacker:session.name, target:target.name, damage:dmg });
+      _damageNpc(io, socket, session, target, dmg, db);
+      msg(socket, `Your spear pierces ${target.name} for ${dmg}!`);
+    },
+  },
+  beastform: {
+    name:'Beast Form', class:['sentinel'], mpCost:20, epCost:0, cooldownMs:90000, targetType:'self',
+    description:'Partially shift into beast form, recovering 15% HP.',
+    effect({ char, db, session, socket }) {
+      const r = Math.ceil(char.max_health * 0.15);
+      const hp = Math.min(char.max_health, char.health + r);
+      db.prepare('UPDATE characters SET health=? WHERE id=?').run(hp, session.characterId);
+      _vitals(socket, { ...char, health:hp });
+      msg(socket, `Beast instincts surge through you, restoring ${r} HP.`);
+      send(socket, GM.SERVER_MSG, { text:'Beast Form active (ATK boosted).', type:'buff' });
+    },
+  },
+  snare: {
+    name:'Snare', class:['sentinel'], mpCost:15, epCost:10, cooldownMs:12000, targetType:'npc',
+    description:'Throw a woodland snare to trap and damage a foe.',
+    effect({ io, socket, session, target, db }) {
+      const dmg = 6 + Math.floor(Math.random() * 8);
+      _damageNpc(io, socket, session, target, dmg, db);
+      broadcast(io, session.roomId, GM.SERVER_MSG, { text:`${target.name} is caught in a snare!` });
+      msg(socket, `Your snare catches ${target.name} for ${dmg}.`);
+    },
+  },
+
+  // ── Serpent ──────────────────────────────────────────────────────────────────
+  hypnotize: {
+    name:'Hypnotize', class:['serpent'], mpCost:30, epCost:0, cooldownMs:25000, targetType:'npc',
+    description:'Lock eyes and mesmerize a foe, suppressing their actions.',
+    effect({ io, session, socket, target }) {
+      broadcast(io, session.roomId, GM.SERVER_MSG, { text:`${target.name} stares blankly, hypnotized!` });
+      msg(socket, `You hypnotize ${target.name}.`);
+    },
+  },
+  venomstrike: {
+    name:'Venom Strike', class:['serpent'], mpCost:20, epCost:15, cooldownMs:5000, targetType:'npc',
+    description:'Strike with a venomous blade for rapid poison damage.',
+    effect({ io, socket, session, target, db }) {
+      const dmg = 10 + Math.floor(Math.random() * 8);
+      broadcast(io, session.roomId, GM.COMBAT_HIT, { attacker:session.name, target:target.name, damage:dmg });
+      _damageNpc(io, socket, session, target, dmg, db);
+      msg(socket, `Venom floods ${target.name}'s wounds for ${dmg}!`);
+    },
+  },
+  disappear: {
+    name:'Disappear', class:['serpent'], mpCost:15, epCost:20, cooldownMs:30000, targetType:'self',
+    description:'Vanish from sight — your next strike is guaranteed to crit.',
+    effect({ socket }) {
+      msg(socket, 'You dissolve into the shadows.');
+      send(socket, GM.SERVER_MSG, { text:'Disappear active (next attack crits).', type:'buff' });
+    },
+  },
+
+  // ── Shaman ───────────────────────────────────────────────────────────────────
+  spiritcall: {
+    name:'Spirit Call', class:['shaman'], mpCost:30, epCost:0, cooldownMs:45000, targetType:'self',
+    description:'Call upon the spirits to restore 25% HP.',
+    effect({ char, db, session, socket }) {
+      const r = Math.ceil(char.max_health * 0.25);
+      const hp = Math.min(char.max_health, char.health + r);
+      db.prepare('UPDATE characters SET health=? WHERE id=?').run(hp, session.characterId);
+      _vitals(socket, { ...char, health:hp });
+      msg(socket, `Ancestral spirits restore ${r} HP.`);
+    },
+  },
+  hexbolt: {
+    name:'Hex Bolt', class:['shaman'], mpCost:25, epCost:0, cooldownMs:4000, targetType:'npc',
+    description:'Hurl a cursed bolt of spirit energy.',
+    effect({ io, socket, session, target, db }) {
+      const dmg = 12 + Math.floor(Math.random() * 10);
+      broadcast(io, session.roomId, GM.COMBAT_HIT, { attacker:session.name, target:target.name, damage:dmg });
+      _damageNpc(io, socket, session, target, dmg, db);
+      msg(socket, `Your hex bolt strikes ${target.name} for ${dmg}!`);
+    },
+  },
+  voduncurse: {
+    name:'Vodun Curse', class:['shaman'], mpCost:35, epCost:0, cooldownMs:15000, targetType:'npc',
+    description:'Place a Vodun curse on a foe, dealing necrotic damage.',
+    effect({ io, socket, session, target, db }) {
+      const dmg = 16 + Math.floor(Math.random() * 12);
+      _damageNpc(io, socket, session, target, dmg, db);
+      broadcast(io, session.roomId, GM.SERVER_MSG, { text:`A Vodun curse settles upon ${target.name}!` });
+      msg(socket, `Your Vodun curse strikes ${target.name} for ${dmg}.`);
+    },
+  },
+
+  // ── Sylvan ───────────────────────────────────────────────────────────────────
+  tempest: {
+    name:'Tempest', class:['sylvan'], mpCost:35, epCost:0, cooldownMs:12000, targetType:'npc',
+    description:'Call down a storm blast dealing heavy lightning damage.',
+    effect({ io, socket, session, target, db }) {
+      const dmg = 16 + Math.floor(Math.random() * 16);
+      broadcast(io, session.roomId, GM.COMBAT_HIT, { attacker:session.name, target:target.name, damage:dmg });
+      _damageNpc(io, socket, session, target, dmg, db);
+      broadcast(io, session.roomId, GM.SERVER_MSG, { text:`A tempest crashes down on ${target.name}!` });
+    },
+  },
+  thornwall: {
+    name:'Thorn Wall', class:['sylvan'], mpCost:25, epCost:0, cooldownMs:30000, targetType:'npc',
+    description:'Raise a wall of thorns that lashes an enemy.',
+    effect({ io, socket, session, target, db }) {
+      const dmg = 10 + Math.floor(Math.random() * 10);
+      _damageNpc(io, socket, session, target, dmg, db);
+      broadcast(io, session.roomId, GM.SERVER_MSG, { text:`Thorns tear into ${target.name}!` });
+      msg(socket, `Your thorn wall lashes ${target.name} for ${dmg}.`);
+    },
+  },
+  leafsurge: {
+    name:'Leaf Surge', class:['sylvan'], mpCost:20, epCost:0, cooldownMs:20000, targetType:'self',
+    description:"Channel the forest's renewal to restore 20% HP and 10% MP.",
+    effect({ char, db, session, socket }) {
+      const hp = Math.min(char.max_health, char.health + Math.ceil(char.max_health * 0.20));
+      const mp = Math.min(char.max_mana,   char.mana   + Math.ceil(char.max_mana   * 0.10));
+      db.prepare('UPDATE characters SET health=?,mana=? WHERE id=?').run(hp, mp, session.characterId);
+      _vitals(socket, { ...char, health:hp, mana:mp });
+      msg(socket, 'A surge of leaf and wind renews your body.');
+    },
+  },
+
+  // ── Unnameable ───────────────────────────────────────────────────────────────
+  frenzy: {
+    name:'Frenzy', class:['unnameable'], mpCost:0, epCost:40, cooldownMs:8000, targetType:'npc',
+    description:'Attack in a wild frenzy with 4-6 rapid chaotic strikes.',
+    effect({ io, socket, session, target, db }) {
+      const hits = 4 + Math.floor(Math.random() * 3);
+      let total = 0;
+      for (let i = 0; i < hits; i++) { const d = 5+Math.floor(Math.random()*7); total+=d; _damageNpc(io, socket, session, target, d, db); }
+      msg(socket, `Frenzy: ${hits} wild strikes for ${total} total!`);
+    },
+  },
+  chaosbolt: {
+    name:'Chaos Bolt', class:['unnameable'], mpCost:30, epCost:0, cooldownMs:6000, targetType:'npc',
+    description:'Hurl a bolt of pure chaos — damage is wildly unpredictable.',
+    effect({ io, socket, session, target, db }) {
+      const dmg = 1 + Math.floor(Math.random() * 40);
+      broadcast(io, session.roomId, GM.COMBAT_HIT, { attacker:session.name, target:target.name, damage:dmg });
+      _damageNpc(io, socket, session, target, dmg, db);
+      msg(socket, `Chaos erupts, striking ${target.name} for ${dmg}!`);
+    },
+  },
+  anathema: {
+    name:'Anathema', class:['unnameable'], mpCost:50, epCost:30, cooldownMs:60000, targetType:'npc',
+    description:'Invoke the Dominion of the Unnameable for a devastating strike.',
+    effect({ io, socket, session, target, db }) {
+      const dmg = 35 + Math.floor(Math.random() * 25);
+      broadcast(io, session.roomId, GM.COMBAT_HIT, { attacker:session.name, target:target.name, damage:dmg });
+      _damageNpc(io, socket, session, target, dmg, db);
+      broadcast(io, session.roomId, GM.SERVER_MSG, { text:`${session.name} invokes Anathema — reality fractures!` });
+      msg(socket, `Anathema obliterates ${target.name} for ${dmg}!`);
+    },
+  },
 };
 
 // ─── Class → skills map ───────────────────────────────────────────────────────
@@ -251,7 +670,9 @@ export const SKILLS = {
 export const CLASS_SKILL_MAP = {};
 for (const [id, skill] of Object.entries(SKILLS)) {
   const classes = skill.class.includes('all')
-    ? ['adventurer','magi','monk','paladin','serpentlord','occultist','bard','blademaster','druid','priest']
+    ? ['adventurer','magi','monk','paladin','serpentlord','occultist','bard','blademaster','druid','priest',
+       'alchemist','apostate','depthswalker','infernal','jester','pariah','psion','runewarden','sentinel',
+       'serpent','shaman','sylvan','unnameable']
     : skill.class;
   for (const cls of classes) {
     (CLASS_SKILL_MAP[cls] ??= []).push(id);
