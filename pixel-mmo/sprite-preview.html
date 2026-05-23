@@ -4,355 +4,623 @@
 <meta charset="UTF-8">
 <title>Sprite Preview</title>
 <style>
-  * { box-sizing: border-box; }
+  * { box-sizing:border-box; }
   body { background:#0d0f1a; color:#d4d8f0; font-family:'Courier New',monospace; padding:1.5rem; margin:0; }
   h1   { color:#7c6af7; font-size:15px; letter-spacing:2px; margin:0 0 .2rem; }
-  h2   { color:#9090d0; font-size:12px; letter-spacing:1px; margin:1.8rem 0 .2rem; border-bottom:1px solid #2a3050; padding-bottom:.35rem; }
-  .tagline { color:#6b7099; font-size:10px; margin:0 0 1.2rem; }
-
+  h2   { color:#9090d0; font-size:12px; letter-spacing:1px; margin:1.8rem 0 .25rem; border-bottom:1px solid #2a3050; padding-bottom:.35rem; }
+  p    { color:#6b7099; font-size:10px; margin:.1rem 0 .8rem; }
   .grid { display:flex; flex-wrap:wrap; gap:1rem; }
-
-  .card {
-    background:#12142a;
-    border:1px solid #2a3050;
-    border-radius:5px;
-    padding:.7rem .7rem .5rem;
-    text-align:center;
-    transition: border-color .15s;
-  }
-  .card:hover { border-color:#5a5a90; }
+  .card { background:#12142a; border:1px solid #2a3050; border-radius:5px; padding:.7rem .7rem .5rem; text-align:center; transition:border-color .15s; }
+  .card:hover { border-color:#6060a0; }
   .card canvas { display:block; margin:0 auto; image-rendering:pixelated; }
-
   .race-name { font-size:11px; color:#c8ccf0; margin:.45rem 0 .1rem; font-weight:bold; }
-  .race-skin { font-size:9px; color:#5a5a80; font-family:'Courier New',monospace; }
-  .class-tag { font-size:9px; color:#7070a0; margin-top:.15rem; }
-  .weapon-tag { font-size:9px; color:#506080; }
-
+  .sub  { font-size:9px; color:#5a5a80; margin:.1rem 0; }
+  .cls  { font-size:9px; color:#7070a0; }
   .swatch { width:10px; height:10px; border-radius:2px; display:inline-block; vertical-align:middle; margin-right:3px; border:1px solid rgba(255,255,255,0.15); }
-
-  .compare-row { display:flex; align-items:flex-end; gap:.25rem; }
-  .compare-label { font-size:8px; color:#5a5a80; writing-mode:vertical-rl; transform:rotate(180deg); padding-bottom:.2rem; }
 </style>
 </head>
 <body>
 
-<h1>PIXEL MMO — RACE GUIDE</h1>
-<p class="tagline">All sprites drawn procedurally at runtime · 3× zoom · hover to highlight</p>
+<h1>PIXEL MMO — RACE &amp; CLASS SPRITE GUIDE</h1>
+<p>Procedurally drawn · 4× zoom · Each race has distinct proportions, features and skin tone.</p>
 
-<h2>ALL RACES — BARE (DEFAULT ADVENTURER COLOURS)</h2>
-<p style="color:#6b7099;font-size:10px;margin:.1rem 0 .8rem">No equipment — shows skin tone and default class body colour clearly.</p>
-<div class="grid" id="bare-grid"></div>
+<h2>ALL RACES — BARE (ADVENTURER CLASS, NO WEAPON)</h2>
+<p>Shows race-specific body shape, skin tone, hair and distinctive features clearly.</p>
+<div class="grid" id="bare"></div>
 
-<h2>ALL RACES — WITH TYPICAL CLASS &amp; WEAPON</h2>
-<p style="color:#6b7099;font-size:10px;margin:.1rem 0 .8rem">Lore-appropriate class pairing · equipped weapon · some with chest armour.</p>
-<div class="grid" id="class-grid"></div>
+<h2>TYPICAL CLASS &amp; WEAPON PAIRINGS</h2>
+<p>Lore-appropriate class body colour and equipped weapon per race.</p>
+<div class="grid" id="classed"></div>
 
 <h2>IMMORTAL — ADMIN VARIANTS</h2>
-<p style="color:#6b7099;font-size:10px;margin:.1rem 0 .8rem">Admin characters display as Immortal. Golden aura and halo regardless of equipped gear.</p>
-<div class="grid" id="immortal-grid"></div>
+<p>Golden aura · floating halo · divine skin. Shown in several gear combinations.</p>
+<div class="grid" id="immortal"></div>
 
-<h2>SIDE-BY-SIDE COMPARISON (same class, all races)</h2>
-<p style="color:#6b7099;font-size:10px;margin:.1rem 0 .8rem">All races as a warrior with an iron sword — same class body colour, different skin tones.</p>
-<div class="grid" id="compare-grid"></div>
+<h2>WARRIOR COMPARISON — SAME CLASS, ALL RACES</h2>
+<p>Every race as warrior + iron sword. Isolates how skin tone and proportions differ.</p>
+<div class="grid" id="compare"></div>
 
 <script>
-// ── Data ──────────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════
+// PALETTES
+// ═══════════════════════════════════════════════════════════════════
 
-const RACE_SKIN = {
-  human:    '#d4a574',
-  elf:      '#c8d4a0',
-  dwarf:    '#c89060',
-  gnome:    '#b0c890',
-  halfling: '#d4b080',
-  orc:      '#90b060',
-  troll:    '#789060',
-  undead:   '#b0b8a8',
-  merfolk:  '#90b8c8',
-  celestial:'#e8d8b0',
-  immortal: '#f0e8c0',
+const SKIN = {
+  human:    '#d4a574', elf:       '#c8d4a0', dwarf:    '#c89060',
+  gnome:    '#b0c890', halfling:  '#d4b080', orc:      '#90b060',
+  troll:    '#708060', undead:    '#a8b0a0', merfolk:  '#88b8c8',
+  celestial:'#e8d8b0', immortal:  '#f0e8c0',
 };
 
 const CLASS_BODY = {
-  adventurer: '#7c6af7',
-  warrior:    '#8a4a3a',
-  knight:     '#5a6a8a',
-  paladin:    '#8a7a3a',
-  ranger:     '#4a7a4a',
-  rogue:      '#4a3a6a',
-  assassin:   '#3a2a4a',
-  bard:       '#7a4a6a',
-  mage:       '#4a5a8a',
-  wizard:     '#3a4a7a',
-  sorcerer:   '#6a3a8a',
-  warlock:    '#4a2a5a',
-  druid:      '#4a6a3a',
-  shaman:     '#5a6a4a',
-  cleric:     '#7a7a4a',
-  priest:     '#8a7a5a',
-  monk:       '#6a5a3a',
-  berserker:  '#8a3a2a',
-  necromancer:'#3a4a3a',
-  enchanter:  '#6a4a7a',
-  summoner:   '#5a4a7a',
-  alchemist:  '#5a7a4a',
-  artificer:  '#5a5a6a',
+  adventurer:'#7c6af7', warrior:'#8a4a3a', knight:'#5a6a8a', paladin:'#8a7a3a',
+  ranger:'#4a7a4a',     rogue:'#4a3a6a',   mage:'#4a5a8a',   wizard:'#3a4a7a',
+  sorcerer:'#6a3a8a',   druid:'#4a6a3a',   cleric:'#7a7a4a', priest:'#8a7a5a',
+  bard:'#7a4a6a',       monk:'#6a5a3a',    berserker:'#8a3a2a', necromancer:'#3a4a3a',
 };
 
-// Race lore pairings for "typical class" section
-const RACE_TYPICAL = {
-  human:    { class:'warrior',     weapon:'sword',  weaponColor:'#A8A8B0', armor:null,      terrain:'city'   },
-  elf:      { class:'ranger',      weapon:'bow',    weaponColor:'#7a5a2a', armor:null,      terrain:'forest' },
-  dwarf:    { class:'berserker',   weapon:'axe',    weaponColor:'#8a6a3a', armor:'#7B5A3A', terrain:'plains' },
-  gnome:    { class:'wizard',      weapon:'staff',  weaponColor:'#a090e0', armor:null,      terrain:'city'   },
-  halfling: { class:'rogue',       weapon:'dagger', weaponColor:'#707060', armor:null,      terrain:'forest' },
-  orc:      { class:'berserker',   weapon:'axe',    weaponColor:'#707070', armor:'#5a4a3a', terrain:'plains' },
-  troll:    { class:'warrior',     weapon:'mace',   weaponColor:'#6a8a6a', armor:'#5a6a4a', terrain:'plains' },
-  undead:   { class:'necromancer', weapon:'staff',  weaponColor:'#8080a0', armor:null,      terrain:'void'   },
-  merfolk:  { class:'mage',        weapon:'staff',  weaponColor:'#60b0c0', armor:null,      terrain:'forest' },
-  celestial:{ class:'paladin',     weapon:'sword',  weaponColor:'#e0d060', armor:'#8a8a50', terrain:'city'   },
-  immortal: { class:'adventurer',  weapon:'sword',  weaponColor:'#e0d060', armor:null,      terrain:'city'   },
+const TERRAIN_BG  = { city:'#3a3520', plains:'#2d4a1e', forest:'#1a3a1a', void:'#0d0f1a', cave:'#201a15', ocean:'#0d2040' };
+const TERRAIN_ACC = { city:'#7a7050', plains:'#4a8a30', forest:'#2a6a2a', void:'#2a3050', cave:'#5a4a35', ocean:'#205080' };
+
+// Per-race config: proportions + feature list + hair + eye colours
+const RC = {
+  human: {
+    hs:1.00, ws:1.00,
+    hw:7, hh:6, bw:10, bh:9, lw:4, lh:7,
+    hair:'#7a4010', eye:'#5a3010',
+    feat:['hair_short'],
+    desc:'Warm tan · balanced proportions',
+  },
+  elf: {
+    hs:1.10, ws:0.90,
+    hw:6, hh:7, bw:9, bh:9, lw:3, lh:9,
+    hair:'#c8c060', eye:'#406030',
+    feat:['pointed_ears','hair_long'],
+    desc:'Pale green tint · tall and slender',
+  },
+  dwarf: {
+    hs:0.82, ws:1.18,
+    hw:8, hh:6, bw:12, bh:8, lw:5, lh:5,
+    hair:'#8B3a10', eye:'#5a3010',
+    feat:['beard','hair_short'],
+    desc:'Ruddy bronze · short and stocky',
+  },
+  gnome: {
+    hs:0.78, ws:0.88,
+    hw:7, hh:6, bw:9, bh:8, lw:3, lh:5,
+    hair:'#9090e0', eye:'#4060a0',
+    feat:['hair_tuft','big_eyes'],
+    desc:'Pale olive · tiny, wide-eyed',
+  },
+  halfling: {
+    hs:0.82, ws:0.90,
+    hw:7, hh:6, bw:9, bh:8, lw:3, lh:5,
+    hair:'#805030', eye:'#603020',
+    feat:['hair_curly','rosy_cheeks'],
+    desc:'Golden tan · small and cheerful',
+  },
+  orc: {
+    hs:1.05, ws:1.10,
+    hw:8, hh:6, bw:12, bh:9, lw:5, lh:7,
+    hair:'#303020', eye:'#802020',
+    feat:['tusks','heavy_brow','hair_short'],
+    desc:'Olive green · broad and fierce',
+  },
+  troll: {
+    hs:1.18, ws:1.28,
+    hw:9, hh:7, bw:14, bh:10, lw:6, lh:7,
+    hair:'#304020', eye:'#806020',
+    feat:['heavy_brow','hair_short','thick_neck'],
+    desc:'Dark olive-grey · massive build',
+  },
+  undead: {
+    hs:0.96, ws:0.82,
+    hw:6, hh:6, bw:8, bh:8, lw:3, lh:7,
+    hair:'#606060', eye:'#cc3030',
+    feat:['hollow_eyes','gaunt_face'],
+    desc:'Pallid grey-green · gaunt and hollow',
+  },
+  merfolk: {
+    hs:1.00, ws:0.92,
+    hw:6, hh:6, bw:9, bh:8, lw:0, lh:0,
+    hair:'#40a0c0', eye:'#206080',
+    feat:['fin_ears','tail'],
+    desc:'Aqua tint · finned, no legs',
+  },
+  celestial: {
+    hs:1.06, ws:0.94,
+    hw:6, hh:6, bw:9, bh:9, lw:3, lh:8,
+    hair:'#f0d860', eye:'#c0a020',
+    feat:['glow','hair_flowing'],
+    desc:'Luminous pale gold · ethereal',
+  },
+  immortal: {
+    hs:1.00, ws:1.00,
+    hw:7, hh:6, bw:10, bh:9, lw:4, lh:7,
+    hair:'#e8c040', eye:'#c09010',
+    feat:['halo','aura','hair_short'],
+    desc:'Divine gold · halo and aura',
+  },
 };
 
-const TERRAIN_BG = {
-  city:'#3a3520', plains:'#2d4a1e', forest:'#1a3a1a', void:'#0d0f1a',
-};
-const TERRAIN_ACC = {
-  city:'#7a7050', plains:'#4a8a30', forest:'#2a6a2a', void:'#2a3050',
-};
-
-const RACE_DESC = {
-  human:    'Warm tan skin · versatile',
-  elf:      'Pale green tint · slender',
-  dwarf:    'Ruddy bronze · stocky',
-  gnome:    'Pale olive · small',
-  halfling: 'Golden tan · slight',
-  orc:      'Olive green · powerful',
-  troll:    'Dark olive-grey · huge',
-  undead:   'Pallid grey-green · gaunt',
-  merfolk:  'Aqua blue tint · lithe',
-  celestial:'Luminous pale gold',
-  immortal: 'Divine gold · halo · aura',
+// Typical class pairing per race
+const TYPICAL = {
+  human:    { cls:'warrior',      wep:'sword',  wc:'#A8A8B0', arm:null,      ter:'city'   },
+  elf:      { cls:'ranger',       wep:'bow',    wc:'#7a5a2a', arm:null,      ter:'forest' },
+  dwarf:    { cls:'berserker',    wep:'axe',    wc:'#a07040', arm:'#7B5A3A', ter:'cave'   },
+  gnome:    { cls:'wizard',       wep:'staff',  wc:'#a090e0', arm:null,      ter:'city'   },
+  halfling: { cls:'rogue',        wep:'dagger', wc:'#707060', arm:null,      ter:'forest' },
+  orc:      { cls:'berserker',    wep:'axe',    wc:'#808080', arm:'#5a4a3a', ter:'plains' },
+  troll:    { cls:'warrior',      wep:'mace',   wc:'#6a8a6a', arm:'#4a5a3a', ter:'plains' },
+  undead:   { cls:'necromancer',  wep:'staff',  wc:'#8080a8', arm:null,      ter:'void'   },
+  merfolk:  { cls:'mage',         wep:'staff',  wc:'#60b0d0', arm:null,      ter:'ocean'  },
+  celestial:{ cls:'paladin',      wep:'sword',  wc:'#e0d060', arm:'#9a8a50', ter:'city'   },
+  immortal: { cls:'adventurer',   wep:'sword',  wc:'#e0d060', arm:null,      ter:'city'   },
 };
 
-// ── Drawing ───────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════
+// BACKGROUND
+// ═══════════════════════════════════════════════════════════════════
 
-function drawBg(ctx, W, H, terrain) {
-  ctx.fillStyle = TERRAIN_BG[terrain] || '#0d0f1a';
+function drawBg(ctx, W, H, ter) {
+  ctx.fillStyle = TERRAIN_BG[ter] || '#0d0f1a';
   ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = 'rgba(255,255,255,0.025)';
   ctx.lineWidth = 1;
-  ctx.strokeStyle = 'rgba(255,255,255,0.03)';
-  for (let x = 0; x < W; x += 16) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
-  for (let y = 0; y < H; y += 16) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
-  const acc = TERRAIN_ACC[terrain] || '#2a3050';
-  ctx.fillStyle = acc;
-  ctx.globalAlpha = 0.3;
-  [[8,10,7],[25,6,5],[44,14,6],[15,22,8],[36,20,5],[55,9,9],[62,18,4]].forEach(([x,y,s]) => ctx.fillRect(x,y,s,s));
+  for (let x=0; x<W; x+=16) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+  for (let y=0; y<H; y+=16) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+  const acc = TERRAIN_ACC[ter] || '#2a3050';
+  ctx.fillStyle = acc; ctx.globalAlpha = 0.28;
+  for (const [x,y,s] of [[6,8,6],[22,5,5],[44,13,7],[14,22,8],[36,19,5],[58,8,9],[52,20,4],[28,28,6]])
+    ctx.fillRect(x,y,s,s);
   ctx.globalAlpha = 1;
+  // Ground line
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.fillRect(0, H-4, W, 4);
 }
 
-function drawSprite(ctx, cx, cy, { race='human', bodyColor='#7c6af7', weaponType=null, weaponColor='#aaa', armorColor=null }, sc=1) {
-  const isImmortal = race === 'immortal';
-  const skin = RACE_SKIN[race] || RACE_SKIN.human;
-  const body = isImmortal
-    ? (armorColor || '#c8a840')
-    : (armorColor || bodyColor);
+// ═══════════════════════════════════════════════════════════════════
+// SPRITE DRAWING
+// ═══════════════════════════════════════════════════════════════════
 
-  // Immortal aura
+function px(v) { return Math.max(1, Math.round(v)); }
+
+function drawSprite(ctx, cx, cy, { race='human', bodyColor, weaponType=null, weaponColor='#aaa', armorColor=null }, sc=1) {
+  const rc = RC[race] || RC.human;
+  const hs = sc * rc.hs, ws = sc * rc.ws;
+  const isImmortal = race === 'immortal';
+
+  const skin = SKIN[race] || SKIN.human;
+  const body = isImmortal ? (armorColor || '#c8a840')
+             : (armorColor || bodyColor || CLASS_BODY.adventurer);
+
+  // ── Immortal / Celestial glow ─────────────────────────────────────
   if (isImmortal) {
-    const gr = ctx.createRadialGradient(cx, cy - 10*sc, 2, cx, cy - 10*sc, 18*sc);
-    gr.addColorStop(0, 'rgba(255,208,80,0.32)');
-    gr.addColorStop(1, 'rgba(255,208,80,0)');
-    ctx.fillStyle = gr;
-    ctx.beginPath(); ctx.arc(cx, cy - 10*sc, 18*sc, 0, Math.PI*2); ctx.fill();
-    // Halo
-    ctx.strokeStyle = 'rgba(255,208,80,0.9)';
-    ctx.lineWidth = Math.max(1, 1.5*sc);
-    ctx.beginPath(); ctx.arc(cx, cy - 25*sc, 5*sc, 0, Math.PI*2); ctx.stroke();
+    const gr = ctx.createRadialGradient(cx, cy-10*hs, 2, cx, cy-10*hs, 20*hs);
+    gr.addColorStop(0, 'rgba(255,210,80,0.35)');
+    gr.addColorStop(1, 'rgba(255,210,80,0)');
+    ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(cx, cy-10*hs, 20*hs, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,210,80,0.88)';
+    ctx.lineWidth = Math.max(1, 1.5*hs);
+    ctx.beginPath(); ctx.arc(cx, cy - (rc.hh + 16)*hs - 6*hs, 6*hs, 0, Math.PI*2); ctx.stroke();
+  }
+  if (race === 'celestial') {
+    const gr2 = ctx.createRadialGradient(cx, cy-12*hs, 1, cx, cy-12*hs, 16*hs);
+    gr2.addColorStop(0, 'rgba(240,220,100,0.22)');
+    gr2.addColorStop(1, 'rgba(240,220,100,0)');
+    ctx.fillStyle = gr2; ctx.beginPath(); ctx.arc(cx, cy-12*hs, 16*hs, 0, Math.PI*2); ctx.fill();
   }
 
-  // Head
-  const hw = Math.round(7*sc), hh = Math.round(6*sc);
-  const headTop = cy - 16*sc - hh;
+  // ── Hair ──────────────────────────────────────────────────────────
+  const headTop = cy - Math.round(16*hs) - Math.round(rc.hh*hs);
+  const hw = Math.round(rc.hw * ws), hh = Math.round(rc.hh * hs);
+  drawHair(ctx, cx, headTop, hw, hh, rc, ws, hs);
+
+  // ── Head ──────────────────────────────────────────────────────────
   ctx.fillStyle = skin;
   ctx.fillRect(cx - Math.floor(hw/2), headTop, hw, hh);
 
-  // Eyes
-  ctx.fillStyle = '#111';
-  const eyeY = headTop + Math.round(2*sc);
-  ctx.fillRect(cx - Math.round(2*sc), eyeY, Math.max(1,Math.round(sc)), Math.max(1,Math.round(sc)));
-  ctx.fillRect(cx + Math.round(1*sc), eyeY, Math.max(1,Math.round(sc)), Math.max(1,Math.round(sc)));
+  // ── Race features (ears, beard, tusks etc.) ───────────────────────
+  drawRaceFeatures(ctx, cx, cy, headTop, hw, hh, rc, skin, ws, hs, race, body);
 
-  // Body
-  const bw = Math.round(10*sc), bh = Math.round(9*sc);
+  // ── Eyes ──────────────────────────────────────────────────────────
+  drawEyes(ctx, cx, headTop, rc, ws, hs, race);
+
+  // ── Body ──────────────────────────────────────────────────────────
+  const bw = Math.round(rc.bw * ws), bh = Math.round(rc.bh * hs);
+  const bodyTop = cy - Math.round(16*hs);
   ctx.fillStyle = body;
-  ctx.fillRect(cx - Math.floor(bw/2), cy - 16*sc, bw, bh);
+  ctx.fillRect(cx - Math.floor(bw/2), bodyTop, bw, bh);
 
-  // Legs
-  const lw = Math.round(4*sc), lh = Math.round(7*sc);
-  const legTop = cy - 16*sc + bh;
-  ctx.fillStyle = skin; ctx.globalAlpha = 0.85;
-  ctx.fillRect(cx - Math.round(5*sc), legTop, lw, lh);
-  ctx.fillRect(cx + Math.round(1*sc), legTop, lw, lh);
-  ctx.globalAlpha = 1;
+  // Body detail: shoulder strip + belt
+  ctx.fillStyle = 'rgba(0,0,0,0.18)';
+  ctx.fillRect(cx - Math.floor(bw/2), bodyTop, bw, px(1.5*hs));
+  ctx.fillRect(cx - Math.floor(bw/2), bodyTop + Math.round(bh*0.65), bw, px(hs));
 
-  if (weaponType) drawWeapon(ctx, cx, cy, weaponType, weaponColor, sc);
+  // ── Legs or Tail ──────────────────────────────────────────────────
+  if (rc.feat.includes('tail')) {
+    drawMerfolkTail(ctx, cx, cy, rc, skin, ws, hs, body);
+  } else if (rc.lw > 0) {
+    const lw = Math.round(rc.lw * ws), lh = Math.round(rc.lh * hs);
+    const legTop = bodyTop + bh;
+    // Pants/skin legs
+    ctx.fillStyle = skin; ctx.globalAlpha = 0.85;
+    ctx.fillRect(cx - Math.round(5*ws), legTop, lw, lh);
+    ctx.fillRect(cx + Math.round(1*ws), legTop, lw, lh);
+    ctx.globalAlpha = 1;
+    // Boots (bottom 2px of legs)
+    const bootH = Math.max(1, px(2*hs));
+    ctx.fillStyle = '#4a3020';
+    ctx.fillRect(cx - Math.round(5*ws), legTop + lh - bootH, lw, bootH);
+    ctx.fillRect(cx + Math.round(1*ws), legTop + lh - bootH, lw, bootH);
+  }
+
+  // ── Weapon ────────────────────────────────────────────────────────
+  if (weaponType) drawWeapon(ctx, cx, cy, weaponType, weaponColor, sc, hs);
 }
 
-function drawWeapon(ctx, cx, cy, wtype, color, sc) {
+// ─── Hair ─────────────────────────────────────────────────────────────────────
+
+function drawHair(ctx, cx, headTop, hw, hh, rc, ws, hs) {
+  ctx.fillStyle = rc.hair;
+  const feat = rc.feat;
+
+  if (feat.includes('hair_long')) {
+    // Long hair: top strip + side strands
+    ctx.fillRect(cx - Math.floor(hw/2), headTop - px(2*hs), hw, px(3*hs));
+    ctx.fillRect(cx - Math.floor(hw/2) - px(ws), headTop, px(2*ws), hh);
+    ctx.fillRect(cx + Math.ceil(hw/2) - px(ws), headTop, px(2*ws), hh);
+  } else if (feat.includes('hair_curly')) {
+    // Curly tuft — small bumps on top
+    ctx.fillRect(cx - Math.floor(hw/2) + px(ws), headTop - px(2*hs), hw - px(2*ws), px(3*hs));
+    ctx.fillRect(cx - px(ws), headTop - px(3*hs), px(3*ws), px(2*hs));
+  } else if (feat.includes('hair_flowing')) {
+    // Flowing celestial hair
+    ctx.fillRect(cx - Math.floor(hw/2), headTop - px(2*hs), hw, px(3*hs));
+    ctx.globalAlpha = 0.7;
+    ctx.fillRect(cx - Math.floor(hw/2) - px(2*ws), headTop + px(2*hs), px(3*ws), Math.round(hh*0.7));
+    ctx.fillRect(cx + Math.ceil(hw/2) - px(ws), headTop + px(2*hs), px(3*ws), Math.round(hh*0.7));
+    ctx.globalAlpha = 1;
+  } else {
+    // hair_short / hair_tuft — default
+    ctx.fillRect(cx - Math.floor(hw/2), headTop - px(2*hs), hw, px(3*hs));
+  }
+}
+
+// ─── Eyes ─────────────────────────────────────────────────────────────────────
+
+function drawEyes(ctx, cx, headTop, rc, ws, hs, race) {
+  const eyeY = headTop + Math.round(2*hs);
+  const ew = Math.max(1, Math.round(ws));
+  const eh = Math.max(1, Math.round(hs));
+
+  if (race === 'undead') {
+    // Dark hollow sockets with red glow
+    ctx.fillStyle = '#1a0808';
+    ctx.fillRect(cx - Math.round(2*ws), eyeY - eh, ew*2, eh*2);
+    ctx.fillRect(cx + Math.round(1*ws), eyeY - eh, ew*2, eh*2);
+    ctx.fillStyle = rc.eye;
+    ctx.fillRect(cx - Math.round(2*ws) + ew/2, eyeY, ew, eh);
+    ctx.fillRect(cx + Math.round(1*ws) + ew/2, eyeY, ew, eh);
+  } else if (rc.feat.includes('big_eyes')) {
+    // Gnome big eyes
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(cx - Math.round(2.5*ws), eyeY, Math.round(2*ws), Math.round(2*hs));
+    ctx.fillRect(cx + Math.round(1*ws), eyeY, Math.round(2*ws), Math.round(2*hs));
+    ctx.fillStyle = rc.eye;
+    ctx.fillRect(cx - Math.round(2*ws), eyeY, ew, eh);
+    ctx.fillRect(cx + Math.round(1.5*ws), eyeY, ew, eh);
+  } else {
+    ctx.fillStyle = rc.eye;
+    ctx.fillRect(cx - Math.round(2*ws), eyeY, ew, eh);
+    ctx.fillRect(cx + Math.round(1*ws), eyeY, ew, eh);
+  }
+}
+
+// ─── Race features ────────────────────────────────────────────────────────────
+
+function drawRaceFeatures(ctx, cx, cy, headTop, hw, hh, rc, skin, ws, hs, race, bodyColor) {
+  if (race === 'elf') {
+    // Pointed ears: sharp triangles on each side
+    ctx.fillStyle = skin;
+    ctx.beginPath();
+    ctx.moveTo(cx - Math.floor(hw/2), headTop + Math.round(1.5*hs));
+    ctx.lineTo(cx - Math.floor(hw/2) - Math.round(3*ws), headTop - Math.round(2*hs));
+    ctx.lineTo(cx - Math.floor(hw/2), headTop + Math.round(3.5*hs));
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.ceil(hw/2), headTop + Math.round(1.5*hs));
+    ctx.lineTo(cx + Math.ceil(hw/2) + Math.round(3*ws), headTop - Math.round(2*hs));
+    ctx.lineTo(cx + Math.ceil(hw/2), headTop + Math.round(3.5*hs));
+    ctx.fill();
+    // Ear tip shading
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    ctx.beginPath();
+    ctx.moveTo(cx - Math.floor(hw/2) - Math.round(3*ws), headTop - Math.round(2*hs));
+    ctx.lineTo(cx - Math.floor(hw/2), headTop + Math.round(1.5*hs));
+    ctx.lineTo(cx - Math.floor(hw/2) - Math.round(1.5*ws), headTop - Math.round(0.5*hs));
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.ceil(hw/2) + Math.round(3*ws), headTop - Math.round(2*hs));
+    ctx.lineTo(cx + Math.ceil(hw/2), headTop + Math.round(1.5*hs));
+    ctx.lineTo(cx + Math.ceil(hw/2) + Math.round(1.5*ws), headTop - Math.round(0.5*hs));
+    ctx.fill();
+  }
+
+  if (race === 'dwarf') {
+    // Thick beard below chin
+    const bw = Math.round(rc.bw * ws);
+    const chinY = headTop + hh;
+    ctx.fillStyle = rc.hair;
+    ctx.fillRect(cx - Math.floor(bw/2), chinY, bw, Math.round(4*hs));
+    // Beard highlight
+    ctx.fillStyle = 'rgba(255,255,255,0.12)';
+    ctx.fillRect(cx - Math.floor(bw/2) + px(ws), chinY + px(hs), Math.round((bw-px(2*ws))*0.5), Math.round(2*hs));
+  }
+
+  if (race === 'orc') {
+    // Lower tusks jutting up from chin
+    const chinY = headTop + hh;
+    ctx.fillStyle = '#e8dca0';
+    ctx.fillRect(cx - Math.round(2*ws), chinY, px(1.5*ws), Math.round(3*hs));
+    ctx.fillRect(cx + Math.round(1*ws), chinY, px(1.5*ws), Math.round(3*hs));
+    // Heavy brow ridge
+    ctx.fillStyle = 'rgba(0,0,0,0.30)';
+    ctx.fillRect(cx - Math.floor(hw/2), headTop, hw, px(1.5*hs));
+  }
+
+  if (race === 'troll') {
+    // Heavy brow + thick neck
+    ctx.fillStyle = 'rgba(0,0,0,0.28)';
+    ctx.fillRect(cx - Math.floor(hw/2), headTop, hw, px(2*hs));
+    const bw = Math.round(rc.bw * ws);
+    const neckW = Math.round(5*ws), neckH = Math.round(3*hs);
+    ctx.fillStyle = skin;
+    ctx.fillRect(cx - Math.floor(neckW/2), headTop + hh, neckW, neckH);
+    // Stubble/texture dots
+    ctx.fillStyle = 'rgba(0,0,0,0.15)';
+    ctx.fillRect(cx - Math.round(ws), headTop + Math.round(4*hs), px(ws), px(hs));
+    ctx.fillRect(cx + Math.round(1.5*ws), headTop + Math.round(3*hs), px(ws), px(hs));
+  }
+
+  if (race === 'undead') {
+    // Gaunt cheeks — dark hollows
+    ctx.fillStyle = 'rgba(0,0,0,0.22)';
+    ctx.fillRect(cx - Math.floor(hw/2), headTop + Math.round(3*hs), px(1.5*ws), Math.round(2*hs));
+    ctx.fillRect(cx + Math.ceil(hw/2) - px(1.5*ws), headTop + Math.round(3*hs), px(1.5*ws), Math.round(2*hs));
+    // Exposed rib suggestion on body
+    const bw = Math.round(rc.bw * ws), bh = Math.round(rc.bh * hs);
+    const bodyTop = cy - Math.round(16*hs);
+    ctx.fillStyle = 'rgba(180,200,180,0.15)';
+    ctx.fillRect(cx - Math.floor(bw/2) + px(ws), bodyTop + Math.round(2.5*hs), bw - px(2*ws), px(hs));
+    ctx.fillRect(cx - Math.floor(bw/2) + px(ws), bodyTop + Math.round(4.5*hs), bw - px(2*ws), px(hs));
+  }
+
+  if (race === 'halfling') {
+    // Rosy cheeks
+    ctx.fillStyle = 'rgba(220,100,80,0.20)';
+    ctx.fillRect(cx - Math.floor(hw/2), headTop + Math.round(3*hs), Math.round(2*ws), Math.round(2*hs));
+    ctx.fillRect(cx + Math.ceil(hw/2) - Math.round(2*ws), headTop + Math.round(3*hs), Math.round(2*ws), Math.round(2*hs));
+  }
+
+  if (race === 'merfolk') {
+    // Fin ears — horizontal flares
+    ctx.fillStyle = skin;
+    ctx.globalAlpha = 0.9;
+    ctx.fillRect(cx - Math.floor(hw/2) - Math.round(4*ws), headTop + Math.round(1.5*hs), Math.round(4*ws), Math.round(2.5*hs));
+    ctx.fillRect(cx + Math.ceil(hw/2), headTop + Math.round(1.5*hs), Math.round(4*ws), Math.round(2.5*hs));
+    // Fin detail
+    ctx.fillStyle = 'rgba(0,100,140,0.35)';
+    ctx.fillRect(cx - Math.floor(hw/2) - Math.round(3*ws), headTop + Math.round(2*hs), Math.round(3*ws), px(hs));
+    ctx.fillRect(cx + Math.ceil(hw/2), headTop + Math.round(2*hs), Math.round(3*ws), px(hs));
+    ctx.globalAlpha = 1;
+  }
+
+  if (race === 'gnome') {
+    // Round cheeks
+    ctx.fillStyle = 'rgba(200,160,120,0.20)';
+    ctx.fillRect(cx - Math.floor(hw/2) + px(ws), headTop + Math.round(3*hs), Math.round(2*ws), Math.round(2*hs));
+    ctx.fillRect(cx + Math.ceil(hw/2) - Math.round(3*ws), headTop + Math.round(3*hs), Math.round(2*ws), Math.round(2*hs));
+  }
+}
+
+// ─── Merfolk tail ─────────────────────────────────────────────────────────────
+
+function drawMerfolkTail(ctx, cx, cy, rc, skin, ws, hs, bodyColor) {
+  const bh = Math.round(rc.bh * hs);
+  const tailTop = cy - Math.round(16*hs) + bh;
+  const tailW = Math.round(8*ws), tailH = Math.round(10*hs);
+  // Tail body (tapers down)
+  ctx.fillStyle = '#3a9ab0';
+  ctx.fillRect(cx - Math.floor(tailW/2), tailTop, tailW, Math.round(tailH * 0.7));
+  // Tail fin
+  ctx.fillRect(cx - Math.floor(tailW/2) - Math.round(3*ws), tailTop + Math.round(tailH*0.6), tailW + Math.round(6*ws), Math.round(tailH*0.35));
+  // Scale shimmer
+  ctx.fillStyle = 'rgba(80,200,220,0.25)';
+  ctx.fillRect(cx - Math.floor(tailW/2) + px(ws), tailTop + Math.round(2*hs), Math.round(3*ws), Math.round(3*hs));
+  ctx.fillRect(cx + px(ws), tailTop + Math.round(4*hs), Math.round(3*ws), Math.round(3*hs));
+}
+
+// ─── Weapon ───────────────────────────────────────────────────────────────────
+
+function drawWeapon(ctx, cx, cy, wtype, color, sc, hs) {
   const ox = cx + Math.round(8*sc);
-  const baseY = cy - Math.round(10*sc);
+  const baseY = cy - Math.round(10*hs);
   ctx.fillStyle = color;
 
   if (wtype === 'sword') {
-    ctx.fillRect(ox, baseY - 12*sc, Math.max(2,Math.round(2*sc)), Math.round(14*sc));
+    // Blade
+    ctx.fillRect(ox, baseY - Math.round(14*hs), Math.max(2,Math.round(2*sc)), Math.round(16*hs));
+    // Blade edge highlight
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.fillRect(ox + Math.max(1,Math.round(sc)), baseY - Math.round(14*hs), Math.max(1,Math.round(sc)), Math.round(10*hs));
+    // Crossguard
     ctx.fillStyle = '#888866';
-    ctx.fillRect(ox - 2*sc, baseY + 2*sc, Math.max(6,Math.round(6*sc)), Math.max(2,Math.round(2*sc)));
+    ctx.fillRect(ox - Math.round(3*sc), baseY + Math.round(2*hs), Math.max(8,Math.round(8*sc)), Math.max(2,Math.round(2*hs)));
+    // Handle
     ctx.fillStyle = '#5a3a1a';
-    ctx.fillRect(ox, baseY + 4*sc, Math.max(2,Math.round(2*sc)), Math.round(4*sc));
+    ctx.fillRect(ox, baseY + Math.round(4*hs), Math.max(2,Math.round(2*sc)), Math.round(5*hs));
+    // Pommel
+    ctx.fillStyle = '#888844';
+    ctx.fillRect(ox - Math.round(sc), baseY + Math.round(9*hs), Math.max(4,Math.round(4*sc)), Math.max(2,Math.round(2*hs)));
+
   } else if (wtype === 'dagger') {
-    ctx.fillRect(ox, baseY - 6*sc, Math.max(2,Math.round(2*sc)), Math.round(8*sc));
+    ctx.fillRect(ox, baseY - Math.round(7*hs), Math.max(2,Math.round(2*sc)), Math.round(9*hs));
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.fillRect(ox + Math.max(1,Math.round(sc)), baseY - Math.round(7*hs), Math.max(1,Math.round(sc)), Math.round(5*hs));
     ctx.fillStyle = '#666655';
-    ctx.fillRect(ox - 1*sc, baseY + 2*sc, Math.max(4,Math.round(4*sc)), Math.max(2,Math.round(2*sc)));
+    ctx.fillRect(ox - Math.round(2*sc), baseY + Math.round(2*hs), Math.max(6,Math.round(6*sc)), Math.max(2,Math.round(2*hs)));
+    ctx.fillStyle = '#5a3a1a';
+    ctx.fillRect(ox, baseY + Math.round(4*hs), Math.max(2,Math.round(2*sc)), Math.round(3*hs));
+
   } else if (wtype === 'staff') {
-    ctx.fillRect(ox + 1*sc, baseY - 16*sc, Math.max(2,Math.round(2*sc)), Math.round(22*sc));
-    ctx.fillStyle = '#9060d0';
-    ctx.beginPath(); ctx.arc(ox + 2*sc, baseY - 16*sc, Math.round(4*sc), 0, Math.PI*2); ctx.fill();
+    // Pole with wood grain
+    ctx.fillRect(ox + Math.round(sc), baseY - Math.round(18*hs), Math.max(2,Math.round(2*sc)), Math.round(26*hs));
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    ctx.fillRect(ox + Math.round(sc), baseY - Math.round(14*hs), Math.max(1,Math.round(sc)), Math.round(5*hs));
+    // Orb
+    ctx.fillStyle = color === '#a090e0' ? '#c0a0ff' : '#9060d0';
+    const r = Math.round(4.5*sc);
+    ctx.beginPath(); ctx.arc(ox + Math.round(2*sc), baseY - Math.round(18*hs), r, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.beginPath(); ctx.arc(ox + Math.round(sc), baseY - Math.round(19*hs), Math.round(1.5*sc), 0, Math.PI*2); ctx.fill();
+
   } else if (wtype === 'axe') {
-    ctx.fillRect(ox + 1*sc, baseY - 10*sc, Math.max(2,Math.round(2*sc)), Math.round(14*sc));
-    ctx.fillRect(ox - 2*sc, baseY - 10*sc, Math.max(6,Math.round(6*sc)), Math.round(6*sc));
+    // Handle
+    ctx.fillRect(ox + Math.round(sc), baseY - Math.round(12*hs), Math.max(2,Math.round(2*sc)), Math.round(16*hs));
+    // Axe head
+    ctx.fillRect(ox - Math.round(3*sc), baseY - Math.round(12*hs), Math.max(8,Math.round(8*sc)), Math.round(7*hs));
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    ctx.fillRect(ox - Math.round(3*sc), baseY - Math.round(12*hs), Math.max(8,Math.round(8*sc)), Math.max(1,Math.round(hs)));
+    // Back spike
+    ctx.fillStyle = color;
+    ctx.fillRect(ox + Math.round(3*sc), baseY - Math.round(8*hs), Math.max(3,Math.round(3*sc)), Math.max(2,Math.round(2*hs)));
+
   } else if (wtype === 'mace') {
-    ctx.fillRect(ox + 1*sc, baseY - 8*sc, Math.max(2,Math.round(2*sc)), Math.round(12*sc));
-    ctx.fillRect(ox - 2*sc, baseY - 12*sc, Math.max(6,Math.round(6*sc)), Math.max(5,Math.round(5*sc)));
+    ctx.fillRect(ox + Math.round(sc), baseY - Math.round(10*hs), Math.max(2,Math.round(2*sc)), Math.round(14*hs));
+    // Flanged head
+    ctx.fillRect(ox - Math.round(3*sc), baseY - Math.round(14*hs), Math.max(8,Math.round(8*sc)), Math.max(6,Math.round(6*hs)));
+    ctx.fillStyle = 'rgba(255,255,255,0.2)';
+    ctx.fillRect(ox - Math.round(3*sc), baseY - Math.round(14*hs), Math.max(8,Math.round(8*sc)), Math.max(1,Math.round(hs)));
+    // Flange spikes
+    ctx.fillStyle = color;
+    ctx.fillRect(ox - Math.round(3*sc), baseY - Math.round(11*hs), Math.max(2,Math.round(2*sc)), Math.max(2,Math.round(2*hs)));
+    ctx.fillRect(ox + Math.round(4*sc), baseY - Math.round(11*hs), Math.max(2,Math.round(2*sc)), Math.max(2,Math.round(2*hs)));
+
   } else if (wtype === 'bow') {
-    ctx.fillStyle = '#7a5a2a';
-    ctx.fillRect(ox, baseY - 12*sc, Math.max(2,Math.round(2*sc)), Math.round(4*sc));
-    ctx.fillRect(ox + 2*sc, baseY - 8*sc, Math.max(2,Math.round(2*sc)), Math.round(12*sc));
-    ctx.fillRect(ox, baseY + 4*sc, Math.max(2,Math.round(2*sc)), Math.round(4*sc));
-    ctx.fillStyle = 'rgba(200,184,128,0.7)';
-    ctx.fillRect(ox - 1*sc, baseY - 12*sc, Math.max(1,Math.round(sc)), Math.round(24*sc));
+    // Bow limbs
+    ctx.fillStyle = '#6a4a1a';
+    ctx.fillRect(ox, baseY - Math.round(13*hs), Math.max(2,Math.round(2*sc)), Math.round(4*hs));
+    ctx.fillRect(ox + Math.round(2*sc), baseY - Math.round(9*hs), Math.max(2,Math.round(2*sc)), Math.round(14*hs));
+    ctx.fillRect(ox, baseY + Math.round(5*hs), Math.max(2,Math.round(2*sc)), Math.round(4*hs));
+    // String
+    ctx.strokeStyle = 'rgba(220,200,140,0.75)';
+    ctx.lineWidth = Math.max(1, Math.round(sc));
+    ctx.beginPath();
+    ctx.moveTo(ox + Math.round(sc), baseY - Math.round(13*hs));
+    ctx.lineTo(ox + Math.round(sc), baseY + Math.round(9*hs));
+    ctx.stroke();
+    // Arrow nocked
+    ctx.fillStyle = '#a07030';
+    ctx.fillRect(ox + Math.round(3*sc), baseY - Math.round(7*hs), px(sc), Math.round(7*hs));
+    ctx.fillStyle = '#c04040';
+    ctx.fillRect(ox + Math.round(2*sc), baseY - Math.round(8*hs), Math.round(3*sc), Math.round(2*hs));
   }
 }
 
-// ── Card factory ──────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════
+// CARD FACTORY
+// ═══════════════════════════════════════════════════════════════════
 
-const SC = 3; // zoom factor
-const SPRITE_W = 80, SPRITE_H = 70; // canvas size in logical px
+const SC = 4;
+const CW = 72, CH = 78;
 
-function makeCard(parent, raceName, classLabel, weaponLabel, drawFn) {
-  const card = document.createElement('div');
-  card.className = 'card';
+function card(parent, race, cls, wepLabel, drawFn) {
+  const div = document.createElement('div'); div.className = 'card';
+  const cv  = document.createElement('canvas');
+  cv.width = CW; cv.height = CH;
+  cv.style.width = CW*SC + 'px'; cv.style.height = CH*SC + 'px';
+  div.appendChild(cv);
+  const ctx = cv.getContext('2d'); ctx.imageSmoothingEnabled = false;
+  drawFn(ctx, CW, CH);
 
-  const cv = document.createElement('canvas');
-  cv.width  = SPRITE_W;
-  cv.height = SPRITE_H;
-  cv.style.width  = SPRITE_W * SC + 'px';
-  cv.style.height = SPRITE_H * SC + 'px';
-  card.appendChild(cv);
+  const nameEl = document.createElement('div'); nameEl.className = 'race-name';
+  nameEl.innerHTML = `<span class="swatch" style="background:${SKIN[race]||'#888'}"></span>${race}`;
+  div.appendChild(nameEl);
 
-  const ctx = cv.getContext('2d');
-  ctx.imageSmoothingEnabled = false;
-  drawFn(ctx, SPRITE_W, SPRITE_H);
+  const hexEl = document.createElement('div'); hexEl.className = 'sub';
+  hexEl.textContent = (SKIN[race]||'').toUpperCase();
+  div.appendChild(hexEl);
 
-  // Skin swatch + race name
-  const skinColor = RACE_SKIN[raceName] || '#888';
-  const nameRow = document.createElement('div');
-  nameRow.className = 'race-name';
-  nameRow.innerHTML = `<span class="swatch" style="background:${skinColor}"></span>${raceName.charAt(0).toUpperCase()+raceName.slice(1)}`;
-  card.appendChild(nameRow);
+  const descEl = document.createElement('div'); descEl.className = 'sub';
+  descEl.textContent = RC[race]?.desc || '';
+  div.appendChild(descEl);
 
-  const skinLabel = document.createElement('div');
-  skinLabel.className = 'race-skin';
-  skinLabel.textContent = skinColor.toUpperCase() + ' · ' + (RACE_DESC[raceName] || '');
-  card.appendChild(skinLabel);
-
-  if (classLabel) {
-    const cl = document.createElement('div');
-    cl.className = 'class-tag';
-    cl.textContent = classLabel;
-    card.appendChild(cl);
+  if (cls) {
+    const clsEl = document.createElement('div'); clsEl.className = 'cls';
+    clsEl.textContent = cls + (wepLabel ? ' · ' + wepLabel : '');
+    div.appendChild(clsEl);
   }
-  if (weaponLabel) {
-    const wl = document.createElement('div');
-    wl.className = 'weapon-tag';
-    wl.textContent = weaponLabel;
-    card.appendChild(wl);
-  }
-
-  parent.appendChild(card);
+  parent.appendChild(div);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Section 1 — Bare (all races, adventurer body, no weapon)
-// ─────────────────────────────────────────────────────────────────────────────
-const bareGrid = document.getElementById('bare-grid');
+function spriteAt(ctx, W, H, race, opts) {
+  const t = TYPICAL[race] || {};
+  const o = { ...t, ...opts };
+  const hasWep = !!o.wep;
+  const cx = hasWep ? W/2 - 5 : W/2;
+  drawBg(ctx, W, H, o.ter || 'plains');
+  drawSprite(ctx, cx, H - 14, {
+    race,
+    bodyColor: CLASS_BODY[o.cls] || CLASS_BODY.adventurer,
+    weaponType:  o.wep  || null,
+    weaponColor: o.wc   || '#aaa',
+    armorColor:  o.arm  || null,
+  });
+}
 
-Object.keys(RACE_SKIN).forEach(race => {
-  const typical = RACE_TYPICAL[race];
-  makeCard(bareGrid, race, null, null, (ctx, W, H) => {
-    drawBg(ctx, W, H, typical?.terrain || 'plains');
-    drawSprite(ctx, W/2, H/2 + 9, { race, bodyColor: CLASS_BODY.adventurer });
+// ═══════════════════════════════════════════════════════════════════
+// BUILD SECTIONS
+// ═══════════════════════════════════════════════════════════════════
+
+const bareEl      = document.getElementById('bare');
+const classedEl   = document.getElementById('classed');
+const immortalEl  = document.getElementById('immortal');
+const compareEl   = document.getElementById('compare');
+
+const RACES = Object.keys(RC);
+
+// Section 1 — Bare
+RACES.forEach(race => {
+  card(bareEl, race, null, null, (ctx, W, H) => {
+    spriteAt(ctx, W, H, race, { wep:null, arm:null, cls:'adventurer', ter: TYPICAL[race]?.ter || 'plains' });
   });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
 // Section 2 — Typical class + weapon
-// ─────────────────────────────────────────────────────────────────────────────
-const classGrid = document.getElementById('class-grid');
-
-Object.entries(RACE_TYPICAL).forEach(([race, t]) => {
-  const bodyColor = CLASS_BODY[t.class] || CLASS_BODY.adventurer;
-  makeCard(classGrid, race, t.class, t.weapon, (ctx, W, H) => {
-    drawBg(ctx, W, H, t.terrain);
-    const ox = t.weapon ? -6 : 0;
-    drawSprite(ctx, W/2 + ox, H/2 + 9, {
-      race,
-      bodyColor,
-      weaponType:  t.weapon,
-      weaponColor: t.weaponColor,
-      armorColor:  t.armor,
-    });
-  });
+RACES.forEach(race => {
+  const t = TYPICAL[race] || {};
+  card(classedEl, race, t.cls, t.wep, (ctx, W, H) => { spriteAt(ctx, W, H, race, {}); });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
 // Section 3 — Immortal variants
-// ─────────────────────────────────────────────────────────────────────────────
-const immortalGrid = document.getElementById('immortal-grid');
-
 [
-  { label:'bare',              weapon:null,     wc:'',        armor:null,      terrain:'city'  },
-  { label:'iron sword',        weapon:'sword',  wc:'#A8A8B0', armor:null,      terrain:'city'  },
-  { label:'staff',             weapon:'staff',  wc:'#a0c0ff', armor:null,      terrain:'void'  },
-  { label:'axe',               weapon:'axe',    wc:'#c8a040', armor:null,      terrain:'plains'},
-  { label:'leather armour',    weapon:'sword',  wc:'#A8A8B0', armor:'#7B5A3A', terrain:'city'  },
-  { label:'cloth robe + staff',weapon:'staff',  wc:'#9060d0', armor:'#6B4FA0', terrain:'void'  },
+  { wep:null,    wc:'',        arm:null,      ter:'city',  label:'bare'                },
+  { wep:'sword', wc:'#A8A8B0', arm:null,      ter:'city',  label:'iron sword'          },
+  { wep:'staff', wc:'#a0c0ff', arm:null,      ter:'void',  label:'staff'               },
+  { wep:'axe',   wc:'#c8a040', arm:null,      ter:'plains',label:'axe'                 },
+  { wep:'sword', wc:'#A8A8B0', arm:'#7B5A3A', ter:'city',  label:'leather armour'      },
+  { wep:'staff', wc:'#9060d0', arm:'#6B4FA0', ter:'void',  label:'cloth robe + staff'  },
 ].forEach(v => {
-  makeCard(immortalGrid, 'immortal', 'admin / developer', v.label, (ctx, W, H) => {
-    drawBg(ctx, W, H, v.terrain);
-    drawSprite(ctx, W/2 + (v.weapon ? -6 : 0), H/2 + 9, {
-      race: 'immortal',
-      bodyColor: '#c8a840',
-      weaponType: v.weapon,
-      weaponColor: v.wc,
-      armorColor: v.armor,
-    });
+  card(immortalEl, 'immortal', 'admin/developer', v.label, (ctx, W, H) => {
+    spriteAt(ctx, W, H, 'immortal', { wep:v.wep, wc:v.wc, arm:v.arm, ter:v.ter, cls:'adventurer' });
   });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Section 4 — Side-by-side: all races as warrior + iron sword
-// ─────────────────────────────────────────────────────────────────────────────
-const compareGrid = document.getElementById('compare-grid');
-
-Object.keys(RACE_SKIN).forEach(race => {
-  makeCard(compareGrid, race, 'warrior', 'iron sword', (ctx, W, H) => {
-    drawBg(ctx, W, H, RACE_TYPICAL[race]?.terrain || 'plains');
-    drawSprite(ctx, W/2 - 6, H/2 + 9, {
-      race,
-      bodyColor:   CLASS_BODY.warrior,
-      weaponType:  'sword',
-      weaponColor: '#A8A8B0',
-    });
+// Section 4 — Warrior comparison
+RACES.forEach(race => {
+  card(compareEl, race, 'warrior', 'iron sword', (ctx, W, H) => {
+    spriteAt(ctx, W, H, race, { wep:'sword', wc:'#A8A8B0', arm:null, cls:'warrior', ter: TYPICAL[race]?.ter || 'plains' });
   });
 });
 </script>
