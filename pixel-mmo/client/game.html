@@ -836,7 +836,7 @@ const _RACE_SKIN = {
   human:    '#d4a574', elf:      '#c8d4a0', dwarf:    '#c89060',
   gnome:    '#b0c890', halfling: '#d4b080', orc:      '#90b060',
   troll:    '#789060', undead:   '#b0b8a8', merfolk:  '#90b8c8',
-  celestial:'#e8d8b0',
+  celestial:'#e8d8b0', immortal: '#f0e8c0',
 };
 
 // Body color accent per class (used when no armor equipped)
@@ -857,8 +857,18 @@ const _CLASS_BODY = {
 function _drawCharSprite(g, cx, cy, appearance, scale) {
   g.clear();
   const sc = scale;
+  const isImmortal = appearance.race === 'immortal';
   const skin = parseInt((_RACE_SKIN[appearance.race] || _RACE_SKIN.human).replace('#',''), 16);
-  const body = parseInt((appearance.armorColor || appearance.bodyColor || '#7c6af7').replace('#',''), 16);
+  const body = parseInt((isImmortal ? (appearance.armorColor || '#c8a840') : (appearance.armorColor || appearance.bodyColor || '#7c6af7')).replace('#',''), 16);
+
+  // Immortal aura — golden glow behind the whole sprite
+  if (isImmortal) {
+    g.fillStyle(0xffd060, 0.18);
+    g.fillCircle(cx, cy - Math.round(10*sc), Math.round(18*sc));
+    // Halo ring above head
+    g.lineStyle(Math.max(1, Math.round(1.5*sc)), 0xffd060, 0.85);
+    g.strokeCircle(cx, cy - Math.round(25*sc), Math.round(5*sc));
+  }
 
   // Head (7w × 6h)
   const hw = Math.round(7 * sc), hh = Math.round(6 * sc);

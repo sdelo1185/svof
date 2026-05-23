@@ -77,7 +77,7 @@ export function enterRoom(io, socket, session, toRoomId) {
 
   // 6. Tell everyone else in the destination
   broadcastExcept(io, toRoomId, socket.id, GM.ROOM_PLAYERS, {
-    entered: { name: session.name, race: session.race, class: session.class, level: session.level },
+    entered: { name: session.name, race: session.displayRace ?? session.race, class: session.class, level: session.level },
   });
 }
 

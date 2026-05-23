@@ -58,10 +58,11 @@ export function createSocketServer(httpServer) {
 
       const raceData  = RACE_STATS[character.race]  ?? RACE_STATS.human;
       const classData = CLASS_STATS[character.class] ?? CLASS_STATS.adventurer;
+      const isImmortal = ['admin','developer'].includes(account.role);
       send(socket, GM.CHAR_STATUS, {
         id:    character.id,
         name:  character.name,
-        race:  character.race,
+        race:  isImmortal ? 'immortal' : character.race,
         class: character.class,
         level: character.level,
         role:  account.role,

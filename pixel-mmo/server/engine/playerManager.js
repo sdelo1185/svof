@@ -16,12 +16,14 @@ const onlineSessions = new Map();
 const roomIndex = new Map();
 
 export function trackJoin(socketId, character, account) {
+  const isImmortal = ['admin','developer'].includes(account.role);
   const session = {
     socketId,
     characterId: character.id,
     accountId: account.id,
     name: character.name,
     race: character.race,
+    displayRace: isImmortal ? 'immortal' : character.race,
     class: character.class,
     level: character.level,
     role: account.role,
@@ -73,7 +75,7 @@ export function getPlayersInRoom(roomId) {
   if (!ids || ids.size === 0) return [];
   return [...ids].map(sid => {
     const s = onlineSessions.get(sid);
-    return s ? { name: s.name, race: s.race, class: s.class, level: s.level } : null;
+    return s ? { name: s.name, race: s.displayRace ?? s.race, class: s.class, level: s.level } : null;
   }).filter(Boolean);
 }
 
