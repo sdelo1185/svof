@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Sprite Preview</title>
+<style>
+  body { background:#0d0f1a; color:#d4d8f0; font-family:'Courier New',monospace; padding:2rem; margin:0; }
+  h2   { color:#7c6af7; margin:0 0 .25rem; font-size:14px; letter-spacing:1px; }
+  p    { color:#6b7099; font-size:11px; margin:.1rem 0 1rem; }
+  .row { display:flex; flex-wrap:wrap; gap:1.5rem; margin-bottom:2rem; }
+  .card { background:#1a1c2e; border:1px solid #2a3050; border-radius:6px; padding:1rem; text-align:center; }
+  .card canvas { display:block; margin:0 auto; image-rendering:pixelated; }
+  .lbl { font-size:10px; color:#9090c0; margin-top:.5rem; }
+  .sub { font-size:9px; color:#6b7099; }
+  hr   { border:none; border-top:1px solid #2a3050; margin:2rem 0; }
+</style>
+</head>
+<body>
+
+<h2>PIXEL MMO — CHARACTER SPRITE PREVIEW</h2>
+<p>All sprites are drawn procedurally at runtime — no image files used.</p>
+
+<hr>
+<h2>IMMORTAL (admin)</h2>
+<p>Golden aura glow · floating halo · pale gold skin · golden body</p>
+<div class="row" id="immortals"></div>
+
+<hr>
+<h2>MORTAL RACES</h2>
+<p>Race-tinted skin · class-coloured body · weapon shapes when equipped</p>
+<div class="row" id="mortals"></div>
+
+<hr>
+<h2>WEAPON SHAPES</h2>
+<p>Drawn to the right of the body based on equipped mainhand item</p>
+<div class="row" id="weapons"></div>
+
+<script>
+// ── palette (mirrors game.html) ──────────────────────────────────────────────
+const RACE_SKIN = {
+  human:'#d4a574', elf:'#c8d4a0', dwarf:'#c89060', gnome:'#b0c890',
+  halfling:'#d4b080', orc:'#90b060', troll:'#789060', undead:'#b0b8a8',
+  merfolk:'#90b8c8', celestial:'#e8d8b0', immortal:'#f0e8c0',
+};
+const CLASS_BODY = {
+  adventurer:'#7c6af7', warrior:'#8a4a3a', knight:'#5a6a8a', paladin:'#8a7a3a',
+  ranger:'#4a7a4a', rogue:'#4a3a6a', mage:'#4a5a8a', wizard:'#3a4a7a',
+  sorcerer:'#6a3a8a', druid:'#4a6a3a', cleric:'#7a7a4a', priest:'#8a7a5a',
+  bard:'#7a4a6a', monk:'#6a5a3a', berserker:'#8a3a2a', necromancer:'#3a4a3a',
+};
+
+// ── drawing helpers (Canvas 2D translation of Phaser Graphics code) ──────────
+function hex(h) {
+  const n = typeof h === 'number' ? h : parseInt(h.replace('#',''), 16);
+  return `#${n.toString(16).padStart(6,'0')}`;
+}
+
+function drawSprite(ctx, cx, cy, appearance, sc = 1.0) {
+  const { race='human', bodyColor='#7c6af7', weaponType=null, weaponColor='#aaaaaa', armorColor=null } = appearance;
+  const isImmortal = race === 'immortal';
+  const skin = RACE_SKIN[race] || RACE_SKIN.human;
+  const body = isImmortal ? (armorColor || '#c8a840') : (armorColor || bodyColor);
+
+  // ── Immortal aura ────────────────────────────────────────────────────────
+  if (isImmortal) {
+    const grad = ctx.createRadialGradient(cx, cy - 10*sc, 2, cx, cy - 10*sc, 18*sc);
+    grad.addColorStop(0, 'rgba(255,208,80,0.30)');
+    grad.addColorStop(1, 'rgba(255,208,80,0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(cx, cy - 10*sc, 18*sc, 0, Math.PI*2);
+    ctx.fill();
+
+    // Halo ring
+    ctx.strokeStyle = 'rgba(255,208,80,0.85)';
+    ctx.lineWidth = Math.max(1, 1.5*sc);
+    ctx.beginPath();
+    ctx.arc(cx, cy - 25*sc, 5*sc, 0, Math.PI*2);
+    ctx.stroke();
+  }
+
+  // ── Head ────────────────────────────────────────────────────────────────
+  const hw = Math.round(7*sc), hh = Math.round(6*sc);
+  const headTop = cy - 16*sc - hh;
+  ctx.fillStyle = skin;
+  ctx.fillRect(cx - Math.floor(hw/2), headTop, hw, hh);
+
+  // Eyes
+  ctx.fillStyle = '#111111';
+  const eyeY = headTop + Math.round(2*sc);
+  ctx.fillRect(cx - Math.round(2*sc), eyeY, Math.max(1, Math.round(sc)), Math.max(1, Math.round(sc)));
+  ctx.fillRect(cx + Math.round(1*sc), eyeY, Math.max(1, Math.round(sc)), Math.max(1, Math.round(sc)));
+
+  // ── Body ────────────────────────────────────────────────────────────────
+  const bw = Math.round(10*sc), bh = Math.round(9*sc);
+  ctx.fillStyle = body;
+  ctx.fillRect(cx - Math.floor(bw/2), cy - Math.round(16*sc), bw, bh);
+
+  // ── Legs ────────────────────────────────────────────────────────────────
+  const lw = Math.round(4*sc), lh = Math.round(7*sc);
+  const legTop = cy - Math.round(16*sc) + bh;
+  ctx.fillStyle = skin;
+  ctx.globalAlpha = 0.85;
+  ctx.fillRect(cx - Math.round(5*sc), legTop, lw, lh);
+  ctx.fillRect(cx + Math.round(1*sc), legTop, lw, lh);
+  ctx.globalAlpha = 1;
+
+  // ── Weapon ──────────────────────────────────────────────────────────────
+  if (weaponType) drawWeapon(ctx, cx, cy, weaponType, weaponColor, sc);
+}
+
+function drawWeapon(ctx, cx, cy, wtype, color, sc) {
+  const ox = cx + Math.round(8*sc);
+  const baseY = cy - Math.round(10*sc);
+  ctx.fillStyle = color;
+
+  if (wtype === 'sword') {
+    ctx.fillRect(ox, baseY - Math.round(12*sc), Math.max(2,Math.round(2*sc)), Math.round(14*sc));
+    ctx.fillStyle = '#888866';
+    ctx.fillRect(ox - Math.round(2*sc), baseY + Math.round(2*sc), Math.max(6,Math.round(6*sc)), Math.max(2,Math.round(2*sc)));
+    ctx.fillStyle = '#5a3a1a';
+    ctx.fillRect(ox, baseY + Math.round(4*sc), Math.max(2,Math.round(2*sc)), Math.round(4*sc));
+
+  } else if (wtype === 'dagger') {
+    ctx.fillRect(ox, baseY - Math.round(6*sc), Math.max(2,Math.round(2*sc)), Math.round(8*sc));
+    ctx.fillStyle = '#666655';
+    ctx.fillRect(ox - Math.round(1*sc), baseY + Math.round(2*sc), Math.max(4,Math.round(4*sc)), Math.max(2,Math.round(2*sc)));
+
+  } else if (wtype === 'staff') {
+    ctx.fillRect(ox + Math.round(1*sc), baseY - Math.round(16*sc), Math.max(2,Math.round(2*sc)), Math.round(22*sc));
+    ctx.fillStyle = '#9060d0';
+    ctx.beginPath();
+    ctx.arc(ox + Math.round(2*sc), baseY - Math.round(16*sc), Math.round(4*sc), 0, Math.PI*2);
+    ctx.fill();
+
+  } else if (wtype === 'axe') {
+    ctx.fillRect(ox + Math.round(1*sc), baseY - Math.round(10*sc), Math.max(2,Math.round(2*sc)), Math.round(14*sc));
+    ctx.fillRect(ox - Math.round(2*sc), baseY - Math.round(10*sc), Math.max(6,Math.round(6*sc)), Math.round(6*sc));
+
+  } else if (wtype === 'mace') {
+    ctx.fillRect(ox + Math.round(1*sc), baseY - Math.round(8*sc), Math.max(2,Math.round(2*sc)), Math.round(12*sc));
+    ctx.fillRect(ox - Math.round(2*sc), baseY - Math.round(12*sc), Math.max(6,Math.round(6*sc)), Math.max(5,Math.round(5*sc)));
+
+  } else if (wtype === 'bow') {
+    ctx.fillStyle = '#7a5a2a';
+    ctx.fillRect(ox, baseY - Math.round(12*sc), Math.max(2,Math.round(2*sc)), Math.round(4*sc));
+    ctx.fillRect(ox + Math.round(2*sc), baseY - Math.round(8*sc), Math.max(2,Math.round(2*sc)), Math.round(12*sc));
+    ctx.fillRect(ox, baseY + Math.round(4*sc), Math.max(2,Math.round(2*sc)), Math.round(4*sc));
+    ctx.fillStyle = 'rgba(200,184,128,0.7)';
+    ctx.fillRect(ox - Math.round(1*sc), baseY - Math.round(12*sc), Math.max(1,Math.round(sc)), Math.round(24*sc));
+  }
+}
+
+function drawSimplePlayer(ctx, cx, cy, race) {
+  const skin = RACE_SKIN[race] || RACE_SKIN.human;
+  ctx.fillStyle = skin;
+  ctx.fillRect(cx - 3, cy - 17, 6, 5);
+  ctx.fillStyle = '#6af7c8';
+  ctx.fillRect(cx - 4, cy - 12, 8, 7);
+  ctx.fillStyle = skin;
+  ctx.globalAlpha = 0.85;
+  ctx.fillRect(cx - 4, cy - 5, 3, 5);
+  ctx.fillRect(cx + 1, cy - 5, 3, 5);
+  ctx.globalAlpha = 1;
+}
+
+// ── terrain backgrounds ──────────────────────────────────────────────────────
+function drawBg(ctx, W, H, terrain) {
+  const BG = { city:'#3a3520', plains:'#2d4a1e', forest:'#1a3a1a', void:'#0d0f1a' };
+  const ACC = { city:'#7a7050', plains:'#4a8a30', forest:'#2a6a2a', void:'#2a3050' };
+  ctx.fillStyle = BG[terrain] || BG.void;
+  ctx.fillRect(0,0,W,H);
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+  for (let x=0; x<W; x+=16) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+  for (let y=0; y<H; y+=16) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+  ctx.fillStyle = ACC[terrain] || ACC.void;
+  ctx.globalAlpha = 0.35;
+  [[10,12,6],[28,8,5],[45,15,4],[18,25,7],[38,22,5],[55,10,8]].forEach(([x,y,s]) => ctx.fillRect(x,y,s,s));
+  ctx.globalAlpha = 1;
+}
+
+function drawLabel(ctx, cx, y, text, color='#d4d8f0') {
+  ctx.fillStyle = color;
+  ctx.font = '9px "Courier New"';
+  ctx.textAlign = 'center';
+  ctx.fillText(text, cx, y);
+}
+
+function makeCard(parent, label, sublabel, drawFn, W=90, H=70) {
+  const card = document.createElement('div');
+  card.className = 'card';
+  const cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  cv.style.width  = W*2 + 'px';
+  cv.style.height = H*2 + 'px';
+  card.appendChild(cv);
+  const lDiv = document.createElement('div');
+  lDiv.className = 'lbl';
+  lDiv.textContent = label;
+  const sDiv = document.createElement('div');
+  sDiv.className = 'sub';
+  sDiv.textContent = sublabel;
+  card.appendChild(lDiv);
+  card.appendChild(sDiv);
+  parent.appendChild(card);
+  const ctx = cv.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  drawFn(ctx, W, H);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Section 1 — Immortals
+// ─────────────────────────────────────────────────────────────────────────────
+const immortalSection = document.getElementById('immortals');
+
+makeCard(immortalSection, 'Immortal', 'no weapon', (ctx,W,H) => {
+  drawBg(ctx, W, H, 'city');
+  drawSprite(ctx, W/2, H/2+8, { race:'immortal', bodyColor:'#c8a840' });
+}, 90, 75);
+
+makeCard(immortalSection, 'Immortal', 'iron sword', (ctx,W,H) => {
+  drawBg(ctx, W, H, 'city');
+  drawSprite(ctx, W/2-6, H/2+8, { race:'immortal', weaponType:'sword', weaponColor:'#A8A8B0' });
+}, 110, 75);
+
+makeCard(immortalSection, 'Immortal', 'staff', (ctx,W,H) => {
+  drawBg(ctx, W, H, 'void');
+  drawSprite(ctx, W/2-6, H/2+8, { race:'immortal', weaponType:'staff', weaponColor:'#a0c0ff' });
+}, 110, 80);
+
+makeCard(immortalSection, 'Immortal', 'leather armour', (ctx,W,H) => {
+  drawBg(ctx, W, H, 'city');
+  drawSprite(ctx, W/2, H/2+8, { race:'immortal', armorColor:'#7B5A3A', weaponType:'sword', weaponColor:'#A8A8B0' });
+}, 110, 75);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Section 2 — Mortal races
+// ─────────────────────────────────────────────────────────────────────────────
+const mortalSection = document.getElementById('mortals');
+
+[
+  ['human',    'warrior',  'sword',  '#8a4a3a', '#A8A8B0', 'plains'],
+  ['elf',      'ranger',   'bow',    '#4a7a4a', '#7a5a2a', 'forest'],
+  ['dwarf',    'berserker','axe',    '#8a3a2a', '#8a6a3a', 'plains'],
+  ['orc',      'warrior',  'mace',   '#8a4a3a', '#6a6a6a', 'plains'],
+  ['undead',   'necromancer','staff','#3a4a3a', '#a0a0c0', 'void'],
+  ['merfolk',  'mage',     'staff',  '#4a5a8a', '#9060d0', 'forest'],
+  ['celestial','paladin',  'sword',  '#8a7a3a', '#e0d080', 'city'],
+].forEach(([race, cls, weapon, bodyHex, wepHex, terrain]) => {
+  makeCard(mortalSection, race.charAt(0).toUpperCase()+race.slice(1), `${cls} · ${weapon}`, (ctx,W,H) => {
+    drawBg(ctx, W, H, terrain);
+    drawSprite(ctx, W/2-5, H/2+8, { race, bodyColor:bodyHex, weaponType:weapon, weaponColor:wepHex });
+  }, 110, 75);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Section 3 — Weapon shapes
+// ─────────────────────────────────────────────────────────────────────────────
+const weaponSection = document.getElementById('weapons');
+
+[
+  ['sword',  '#A8A8B0', 'Iron Sword'],
+  ['dagger', '#8B5E3C', 'Rusty Dagger'],
+  ['staff',  '#9060d0', 'Mage Staff'],
+  ['axe',    '#8a6a3a', 'Battle Axe'],
+  ['mace',   '#888888', 'Iron Mace'],
+  ['bow',    '#7a5a2a', 'Longbow'],
+].forEach(([wtype, color, name]) => {
+  makeCard(weaponSection, name, wtype, (ctx,W,H) => {
+    drawBg(ctx, W, H, 'plains');
+    drawSprite(ctx, W/2-5, H/2+8, { race:'human', bodyColor:'#7c6af7', weaponType:wtype, weaponColor:color });
+  }, 110, 75);
+});
+</script>
+</body>
+</html>
