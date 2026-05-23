@@ -18,9 +18,12 @@
   }
   .card {
     background:#13152a; border:1px solid #2a2d45; border-radius:8px;
-    padding:10px 8px 8px; text-align:center; width:210px;
+    padding:10px 8px 8px; text-align:center; width:420px;
   }
-  .card canvas { display:block; margin:0 auto 6px; image-rendering:pixelated; }
+  .card .sprites { display:flex; gap:6px; justify-content:center; margin-bottom:5px; }
+  .card .sprite-col { display:flex; flex-direction:column; align-items:center; gap:2px; }
+  .card canvas { display:block; image-rendering:pixelated; }
+  .card .glabel { font-size:.68em; color:#778; }
   .card .label { font-size:.72em; color:#99b; text-transform:capitalize; }
   .card .sublabel { font-size:.63em; color:#668; }
 </style>
@@ -341,9 +344,11 @@ function drawBackground(ctx, W, H, ter) {
 function drawSprite(ctx, cx, ground, opts) {
   const {
     skin='#e8c49a', hair='#5c3a1e', eye='#4a6fa5',
-    bodyW=11, bodyH=12, bodyCol='#708090',
-    race='human', raceData={}
+    bodyW: rawBodyW=11, bodyH=12, bodyCol='#708090',
+    race='human', raceData={}, gender='male'
   } = opts;
+  const isFemale = gender === 'female';
+  const bodyW = isFemale ? rawBodyW - 2 : rawBodyW;
 
   const hairH   = 4;
   const headW   = 12, headH = 9;
@@ -605,7 +610,8 @@ function drawSprite(ctx, cx, ground, opts) {
   // ── Hair ─────────────────────────────────────────────────
   const hairCol = hair;
   const hairStyles = ['short','medium','long','ponytail'];
-  const hStyle = hairStyles[Object.keys(RACES).indexOf(race) % hairStyles.length] || 'short';
+  let hStyle = hairStyles[Object.keys(RACES).indexOf(race) % hairStyles.length] || 'short';
+  if (isFemale && hStyle !== 'ponytail') hStyle = 'long';
 
   // Base hair crown
   sRect(ctx, hx-1, hairTop, headW+2, hairH+1, hairCol, 0.28, -0.35);
@@ -614,6 +620,11 @@ function drawSprite(ctx, cx, ground, opts) {
     // Long side strands
     sRect(ctx, hx-1, headTop, 2, headH-1, hairCol, 0.18, -0.28);
     sRect(ctx, hx+headW-1, headTop, 2, headH-1, tint(hairCol,-0.08), 0.12, -0.30);
+  }
+  if (isFemale && hStyle === 'long') {
+    // Extra length flowing past neck
+    sRect(ctx, hx-1, headBot, 2, neckH+4, tint(hairCol,-0.10), 0.12, -0.25);
+    sRect(ctx, hx+headW-1, headBot, 2, neckH+4, tint(hairCol,-0.14), 0.08, -0.28);
   }
   if (hStyle === 'ponytail') {
     // Ponytail
@@ -707,6 +718,15 @@ function drawSprite(ctx, cx, ground, opts) {
     ctx.fillRect(eyeRX+1, eyeY, 1, eyeH);
   }
 
+  // Female eyelashes
+  if (isFemale && !raceData.hollowEyes) {
+    ctx.fillStyle = OL;
+    ctx.fillRect(eyeLX+eyeW,   eyeY-1, 1, 1);
+    ctx.fillRect(eyeLX+eyeW+1, eyeY-1, 1, 1);
+    ctx.fillRect(eyeRX-1,      eyeY-1, 1, 1);
+    ctx.fillRect(eyeRX-2,      eyeY-1, 1, 1);
+  }
+
   // ── Nose ─────────────────────────────────────────────────
   ctx.fillStyle = tint(skin, -0.18);
   ctx.fillRect(cx, headTop+5, 1, 1);
@@ -735,6 +755,14 @@ function drawSprite(ctx, cx, ground, opts) {
     ctx.fillRect(hx+1, mouthY, headW-2, 2);
     ctx.fillStyle = tint(skin,-0.10);
     ctx.fillRect(hx+1, mouthY, headW-2, 1);
+  } else if (isFemale) {
+    // Female: defined lips
+    ctx.fillStyle = tint('#c06870', -0.20);
+    ctx.fillRect(hx+3, mouthY+1, headW-6, 1);
+    ctx.fillStyle = '#c06870';
+    ctx.fillRect(hx+3, mouthY, headW-6, 1);
+    ctx.fillStyle = tint('#c06870', 0.28);
+    ctx.fillRect(hx+3, mouthY-1, headW-6, 1);
   } else {
     // Slight smile
     ctx.fillStyle = tint(skin,-0.22);
@@ -745,8 +773,9 @@ function drawSprite(ctx, cx, ground, opts) {
   }
 
   // ── Rosy cheeks ─────────────────────────────────────────
-  if (raceData.rosy) {
-    ctx.fillStyle = 'rgba(240,100,100,0.35)';
+  if ((raceData.rosy || isFemale) && !raceData.hollowEyes) {
+    const blushA = raceData.rosy ? 0.35 : 0.18;
+    ctx.fillStyle = `rgba(240,100,100,${blushA})`;
     ctx.beginPath(); ctx.arc(hx+2, headTop+5, 2, 0, Math.PI*2); ctx.fill();
     ctx.beginPath(); ctx.arc(hx+headW-2, headTop+5, 2, 0, Math.PI*2); ctx.fill();
   }
@@ -963,8 +992,8 @@ function drawWeapon(ctx, cx, bodyTop, bodyBottom, ground, wtype, col, ws=1, hs=1
   }
 }
 
-// ─── Render one card ─────────────────────────────────────────
-function renderCard(raceName, className, terrain) {
+// ─── Render one sprite canvas ────────────────────────────────
+function renderCanvas(raceName, className, terrain, gender) {
   const raceData = RACES[raceName] || RACES.human;
   const classCfg = CLASS_CFG[className] || CLASS_CFG.warrior;
 
@@ -977,7 +1006,6 @@ function renderCard(raceName, className, terrain) {
   ctx.imageSmoothingEnabled = false;
   ctx.scale(ZOOM, ZOOM);
 
-  // Downscale to logical size
   const W = CW / ZOOM, H = CH / ZOOM;
   drawBackground(ctx, W, H, terrain);
 
@@ -993,14 +1021,10 @@ function renderCard(raceName, className, terrain) {
     bodyCol:  classCfg.col,
     race:     raceName,
     raceData: raceData,
+    gender:   gender,
   });
 
-  // Weapon
-  const bodyH = 12;
-  const legH  = 9;
-  const neckH = 3;
-  const headH = 9;
-  const hairH = 4;
+  const legH = 9, bodyH = 12;
   const bodyTop    = ground - legH - bodyH;
   const bodyBottom = ground - legH;
   drawWeapon(ctx, cx, bodyTop, bodyBottom, ground, classCfg.weapon, classCfg.col);
@@ -1016,11 +1040,24 @@ function renderAll() {
   grid.innerHTML = '';
 
   for (const raceName of Object.keys(RACES)) {
-    const canvas = renderCard(raceName, className, terrain);
-
     const card = document.createElement('div');
     card.className = 'card';
-    card.appendChild(canvas);
+
+    const spritesDiv = document.createElement('div');
+    spritesDiv.className = 'sprites';
+
+    for (const gender of ['male', 'female']) {
+      const col = document.createElement('div');
+      col.className = 'sprite-col';
+      const canvas = renderCanvas(raceName, className, terrain, gender);
+      col.appendChild(canvas);
+      const gl = document.createElement('div');
+      gl.className = 'glabel';
+      gl.textContent = gender === 'male' ? '♂' : '♀';
+      col.appendChild(gl);
+      spritesDiv.appendChild(col);
+    }
+    card.appendChild(spritesDiv);
 
     const label = document.createElement('div');
     label.className = 'label';
