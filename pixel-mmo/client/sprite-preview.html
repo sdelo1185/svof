@@ -2,27 +2,34 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Pixel MMO – Sprite Preview</title>
 <style>
+  * { box-sizing:border-box; }
   body { background:#0d0d18; margin:0; font-family:'Courier New',monospace; color:#ccd; }
   h1 { text-align:center; color:#aef; letter-spacing:2px; margin:18px 0 4px; font-size:1.1em; }
-  #controls { text-align:center; margin-bottom:14px; }
+  #controls { text-align:center; margin-bottom:14px; padding:0 8px; }
   select, button {
-    background:#1a1d2e; color:#ccd; border:1px solid #445; padding:4px 10px;
+    background:#1a1d2e; color:#ccd; border:1px solid #445; padding:8px 12px;
     border-radius:4px; cursor:pointer; font-family:inherit; font-size:.85em; margin:3px;
+    min-height:36px;
   }
   select:focus, button:hover { border-color:#8af; outline:none; }
   #grid {
-    display:flex; flex-wrap:wrap; justify-content:center; gap:14px;
-    padding:0 20px 30px; max-width:1500px; margin:0 auto;
+    display:grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(380px, 100%), 1fr));
+    gap:12px; padding:0 10px 30px;
   }
   .card {
     background:#13152a; border:1px solid #2a2d45; border-radius:8px;
-    padding:10px 8px 8px; text-align:center; width:420px;
+    padding:10px 8px 8px; text-align:center;
   }
-  .card .sprites { display:flex; gap:8px; justify-content:center; margin-bottom:5px; }
-  .card .sprite-col { display:flex; flex-direction:column; align-items:center; gap:3px; }
-  .card canvas { display:block; image-rendering:pixelated; }
+  .card .sprites { display:flex; gap:6px; justify-content:center; margin-bottom:5px; }
+  .card .sprite-col { display:flex; flex-direction:column; align-items:center; gap:3px; flex:1; }
+  .card canvas {
+    display:block; image-rendering:pixelated; image-rendering:crisp-edges;
+    width:100%; max-width:192px; height:auto; aspect-ratio:96/160;
+  }
   .card .glabel { font-size:.68em; color:#778; }
   .card .label { font-size:.75em; color:#99b; text-transform:capitalize; margin-bottom:1px; }
   .card .sublabel { font-size:.63em; color:#557; }
@@ -824,7 +831,6 @@ function renderCanvas(raceName,className,terrain,gender){
   const cls=CLASSES[className]||CLASSES.warrior;
   const canvas=document.createElement('canvas');
   canvas.width=CW;canvas.height=CH;
-  canvas.style.width=CW*ZOOM+'px';canvas.style.height=CH*ZOOM+'px';
   const ctx=canvas.getContext('2d');
   ctx.imageSmoothingEnabled=false;
   ctx.scale(ZOOM,ZOOM);
