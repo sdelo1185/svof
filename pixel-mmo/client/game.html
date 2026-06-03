@@ -1,0 +1,2522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pixel MMO</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/phaser/phaser.js"></script>
+  <style>
+    :root {
+      --bg:#0d0f1a; --surface:#161929; --surface2:#1e2235;
+      --border:#2a3050; --border2:#3a4060;
+      --accent:#7c6af7; --accent2:#f7a26a; --accent3:#6af7c8;
+      --text:#d4d8f0; --muted:#6b7099; --dim:#4a5070;
+      --hp:#e05050; --mp:#5080e0; --ep:#50c060;
+      --success:#4caf80; --warn:#f7c86a; --danger:#f76a6a;
+      --pixel:'Press Start 2P',monospace; --mono:'Share Tech Mono',monospace;
+    }
+    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Share+Tech+Mono&display=swap');
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13px;height:100vh;overflow:hidden;display:flex;flex-direction:column;}
+
+    /* ── Screens ── */
+    .screen{display:none;flex:1;flex-direction:column;min-height:0;}
+    .screen.active{display:flex;}
+
+    /* ── Auth ── */
+    #authScreen{align-items:center;justify-content:center;}
+    .auth-box{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:2.5rem;width:480px;max-height:90vh;overflow-y:auto;}
+    .auth-box h1{font-family:var(--pixel);font-size:10px;color:var(--accent);text-align:center;margin-bottom:.4rem;letter-spacing:2px;}
+    .subtitle{font-size:11px;color:var(--muted);text-align:center;margin-bottom:1.8rem;}
+    .auth-tabs{display:flex;margin-bottom:1.5rem;border-bottom:1px solid var(--border);}
+    .auth-tab{flex:1;padding:.5rem;text-align:center;cursor:pointer;color:var(--muted);font-size:11px;border-bottom:2px solid transparent;}
+    .auth-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+    label{display:block;color:var(--muted);font-size:11px;margin-bottom:.3rem;margin-top:1rem;}
+    input[type=text],input[type=password],input[type=email],input[type=number],select,textarea{
+      width:100%;background:var(--bg);border:1px solid var(--border);border-radius:3px;
+      color:var(--text);padding:.55rem .7rem;font-family:var(--mono);font-size:13px;outline:none;}
+    input:focus,select:focus,textarea:focus{border-color:var(--accent);}
+    .btn{display:inline-block;padding:.6rem 1.2rem;border:none;border-radius:3px;cursor:pointer;
+         font-family:var(--pixel);font-size:8px;letter-spacing:1px;width:100%;margin-top:1.2rem;}
+    .btn:disabled{opacity:.4;cursor:not-allowed;}
+    .btn-primary{background:var(--accent);color:#fff;}
+    .btn-success{background:var(--success);color:#fff;}
+    .btn-danger{background:var(--danger);color:#fff;}
+    .btn-muted{background:var(--border);color:var(--text);}
+    .err-msg{margin-top:.75rem;color:var(--danger);font-size:11px;text-align:center;min-height:1em;}
+
+    /* ── Char select ── */
+    #charScreen{align-items:center;justify-content:center;}
+    .char-box{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:2rem;width:420px;max-height:90vh;overflow-y:auto;}
+    .char-box h2{font-family:var(--pixel);font-size:10px;color:var(--accent2);margin-bottom:1.5rem;}
+    .char-list{display:flex;flex-direction:column;gap:.5rem;margin-bottom:1.25rem;}
+    .char-card{background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:.75rem 1rem;
+               cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:border-color .15s;}
+    .char-card:hover{border-color:var(--accent);}
+    .cname{font-family:var(--pixel);font-size:9px;color:var(--text);}
+    .cinfo{font-size:11px;color:var(--muted);}
+    .char-divider{border:none;border-top:1px solid var(--border);margin:1rem 0;}
+    .char-create-toggle{color:var(--accent);font-size:12px;cursor:pointer;display:block;text-align:center;margin-bottom:.75rem;}
+    #createCharForm{display:none;}
+    .race-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.35rem;margin-top:.4rem;}
+    .race-btn{background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:.4rem .3rem;
+              cursor:pointer;text-align:center;font-size:11px;color:var(--muted);transition:all .15s;}
+    .race-btn:hover{border-color:var(--accent);color:var(--text);}
+    .race-btn.active{border-color:var(--accent);background:#1e1f3d;color:var(--accent);}
+
+    /* ── Game screen layout ── */
+    #gameScreen{display:none;flex-direction:column;}
+    #gameScreen.active{display:flex;}
+
+    /* Vitals bar */
+    #vitals{background:var(--surface);border-bottom:1px solid var(--border);padding:.4rem 1rem;
+            display:flex;align-items:center;gap:1.2rem;flex-shrink:0;flex-wrap:wrap;}
+    #charName{font-family:var(--pixel);font-size:9px;color:var(--accent2);min-width:130px;}
+    .bar-group{display:flex;align-items:center;gap:.4rem;}
+    .bar-label{font-size:10px;color:var(--muted);width:20px;}
+    .bar{height:10px;width:90px;background:var(--bg);border:1px solid var(--border2);border-radius:2px;overflow:hidden;}
+    .bar-fill{height:100%;transition:width .3s;}
+    .bar-hp .bar-fill{background:var(--hp);}
+    .bar-mp .bar-fill{background:var(--mp);}
+    .bar-ep .bar-fill{background:var(--ep);}
+    .bar-val{font-size:10px;color:var(--muted);}
+    #roleTag{font-family:var(--pixel);font-size:7px;padding:2px 5px;background:var(--danger);color:#fff;border-radius:2px;margin-left:auto;}
+
+    /* Play area */
+    #playArea{display:flex;flex:1;overflow:hidden;min-height:0;}
+
+    /* Canvas column */
+    #canvasCol{display:flex;flex-direction:column;flex:1;overflow:hidden;border-right:1px solid var(--border);min-height:0;}
+    #phaserMount{flex-shrink:0;position:relative;background:#000;}
+    #phaserMount canvas{display:block;}
+
+    /* Room text info */
+    #roomInfo{padding:.6rem 1rem .3rem;border-bottom:1px solid var(--border);flex-shrink:0;}
+    #roomName{font-family:var(--pixel);font-size:10px;color:var(--accent2);margin-bottom:.25rem;}
+    #roomDesc{font-size:12px;color:var(--muted);line-height:1.6;}
+
+    /* Message log */
+    #logArea{flex:1;overflow-y:auto;padding:.5rem 1rem;font-size:12px;line-height:1.8;min-height:0;}
+    .log-line{margin:0;}
+    .log-line.sys{color:var(--muted);font-style:italic;}
+    .log-line.err{color:var(--danger);}
+    .log-line.move{color:var(--accent3);}
+    .log-line.enter{color:var(--success);}
+    .log-line.leave{color:var(--dim);}
+    .log-line.say{color:var(--text);}
+    .log-line.tell{color:var(--accent);}
+    .log-line.yell{color:var(--warn);}
+    .log-line.emote{color:var(--accent2);}
+    .log-line.examine pre{font-size:10px;color:var(--muted);background:var(--bg);padding:.4rem;border-radius:3px;overflow-x:auto;margin-top:.2rem;}
+
+    /* Command input */
+    #cmdBar{display:flex;border-top:2px solid var(--border2);flex-shrink:0;background:var(--surface2);}
+    #cmdInput{flex:1;background:transparent;border:none;color:var(--text);padding:.65rem .75rem;font-family:var(--mono);font-size:13px;outline:none;}
+    #cmdInput::placeholder{color:var(--muted);}
+    #cmdSend{background:var(--accent);border:none;color:#fff;padding:.65rem 1.1rem;cursor:pointer;font-family:var(--pixel);font-size:8px;letter-spacing:1px;}
+
+    /* Exits */
+    #exitsArea{padding:.4rem 1rem;border-top:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;}
+    #exitsArea .elabel{font-size:10px;color:var(--muted);margin-right:.25rem;}
+    .exit-btn{background:var(--surface2);border:1px solid var(--border2);border-radius:3px;padding:.25rem .6rem;
+              cursor:pointer;font-family:var(--mono);font-size:12px;color:var(--text);transition:all .12s;}
+    .exit-btn:hover{border-color:var(--accent);color:var(--accent);}
+    .exit-btn.door{border-color:var(--accent2);color:var(--accent2);}
+    .exit-btn.locked{border-color:var(--dim);color:var(--dim);cursor:not-allowed;}
+
+    /* Side panel */
+    #sidePanel{width:220px;display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;}
+    .side-section{border-bottom:1px solid var(--border);display:flex;flex-direction:column;flex:1;overflow:hidden;}
+    .side-section h3{font-family:var(--pixel);font-size:8px;color:var(--muted);padding:.5rem .75rem .3rem;border-bottom:1px solid var(--border);flex-shrink:0;}
+    .side-list{list-style:none;overflow-y:auto;flex:1;padding:.3rem .75rem;}
+    .side-list li{padding:.2rem 0;font-size:11px;border-bottom:1px solid var(--border);}
+    .side-list li:last-child{border-bottom:none;}
+    .pname{color:var(--accent);}
+    .pinfo{font-size:10px;color:var(--muted);}
+    .iname{color:var(--accent2);}
+    .iinfo{font-size:10px;color:var(--muted);}
+    .empty-msg{color:var(--dim);font-size:11px;font-style:italic;}
+
+    /* Side tabs */
+    .side-tabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;}
+    .side-tab{flex:1;padding:.35rem;text-align:center;cursor:pointer;font-size:10px;color:var(--muted);border-bottom:2px solid transparent;}
+    .side-tab.active{color:var(--accent2);border-bottom-color:var(--accent2);}
+    .side-content{display:none;flex:1;overflow:hidden;flex-direction:column;}
+    .side-content.active{display:flex;}
+
+    /* ── Admin panel ── */
+    #adminPanel{position:fixed;top:0;right:0;bottom:0;width:290px;z-index:50;
+                background:var(--surface);border-left:2px solid var(--danger);
+                display:flex;flex-direction:column;overflow:hidden;
+                transform:translateX(100%);transition:transform .2s ease;}
+    #adminPanel.open{transform:translateX(0);}
+    #adminToggle{font-family:var(--pixel);font-size:7px;padding:2px 6px;background:var(--danger);
+                 color:#fff;border-radius:2px;margin-left:.5rem;cursor:pointer;border:none;
+                 letter-spacing:1px;}
+    #adminPanel h2{font-family:var(--pixel);font-size:8px;color:var(--danger);padding:.5rem .75rem;border-bottom:1px solid var(--border);}
+    .admin-tabs{display:flex;border-bottom:1px solid var(--border);}
+    .admin-tab{flex:1;padding:.35rem;text-align:center;cursor:pointer;font-size:10px;color:var(--muted);border-bottom:2px solid transparent;}
+    .admin-tab.active{color:var(--danger);border-bottom-color:var(--danger);}
+    .admin-content{flex:1;overflow-y:auto;padding:.6rem;display:none;}
+    .admin-content.active{display:block;}
+    .af{margin-bottom:.5rem;}
+    .af label{font-size:10px;color:var(--muted);display:block;margin-bottom:.2rem;}
+    .af input,.af select,.af textarea{font-size:11px;padding:.3rem .45rem;}
+    .af textarea{resize:vertical;min-height:52px;}
+    .abtn{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:3px;color:var(--text);
+          padding:.35rem;cursor:pointer;font-family:var(--mono);font-size:11px;margin-top:.35rem;text-align:left;}
+    .abtn:hover{border-color:var(--accent);color:var(--accent);}
+    .abtn.danger:hover{border-color:var(--danger);color:var(--danger);}
+    .arow{display:flex;gap:.35rem;}
+    .arow .af{flex:1;}
+    #adminRoomMeta{font-size:10px;color:var(--dim);word-break:break-all;margin-bottom:.5rem;white-space:pre-line;}
+    details summary{cursor:pointer;font-size:11px;color:var(--accent2);margin:.4rem 0 .3rem;user-select:none;}
+
+    ::-webkit-scrollbar{width:4px;}::-webkit-scrollbar-track{background:var(--bg);}::-webkit-scrollbar-thumb{background:var(--border2);}
+
+    /* ── Combat log coloring ── */
+    .log-line.combat-hit{color:#e07050;}
+    .log-line.combat-miss{color:var(--dim);}
+    .log-line.combat-kill{color:var(--warn);}
+    .log-line.combat-death{color:var(--danger);font-weight:bold;}
+    .log-line.levelup{color:var(--accent);font-weight:bold;}
+    .log-line.xp{color:var(--success);font-size:11px;}
+    .npc-hostile{color:#e05050 !important;}
+    .npc-hp-bar{height:4px;background:var(--border);border-radius:2px;margin-top:2px;}
+    .npc-hp-fill{height:100%;background:var(--hp);border-radius:2px;transition:width .3s;}
+
+    /* ── Worldbuilding modal ── */
+    #wbModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:100;align-items:center;justify-content:center;}
+    #wbModal.open{display:flex;}
+    .wb-box{background:var(--surface);border:1px solid var(--border2);border-radius:6px;padding:1.5rem;width:520px;max-height:85vh;overflow-y:auto;}
+    .wb-box h2{font-family:var(--pixel);font-size:10px;color:var(--accent);margin-bottom:1rem;}
+    .wb-step{display:none;}.wb-step.active{display:block;}
+    .wb-preview-card{background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:.75rem;margin-top:.6rem;}
+    .wb-attr-row{display:flex;justify-content:space-between;font-size:11px;padding:.15rem 0;border-bottom:1px solid var(--border);}
+    .wb-attr-key{color:var(--muted);}
+    .wb-attr-val{color:var(--text);}
+    .wb-image{width:100%;border-radius:4px;margin-top:.5rem;image-rendering:pixelated;}
+    .wb-type-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.35rem;margin:.5rem 0;}
+    .wb-type-btn{background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:.4rem;cursor:pointer;text-align:center;font-size:11px;color:var(--muted);}
+    .wb-type-btn:hover,.wb-type-btn.active{border-color:var(--accent);color:var(--accent);background:#1e1f3d;}
+    .lore-warn{color:var(--warn);font-size:11px;margin-top:.4rem;line-height:1.5;}
+    .lore-ok{color:var(--success);font-size:11px;margin-top:.4rem;}
+
+    /* ── Equipment panel ── */
+    .equip-grid{display:grid;grid-template-columns:1fr 1fr;gap:.3rem;margin-top:.4rem;}
+    .equip-slot{background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:.3rem .4rem;font-size:10px;}
+    .equip-slot-name{color:var(--muted);}
+    .equip-slot-item{color:var(--accent2);}
+    .equip-slot-empty{color:var(--dim);font-style:italic;}
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════════════ AUTH -->
+<div id="authScreen" class="screen active">
+  <div class="auth-box">
+    <h1>PIXEL MMO</h1>
+    <p class="subtitle">Achaea-inspired pixel world</p>
+    <div class="auth-tabs">
+      <div class="auth-tab active" onclick="switchAuthTab('login')">Login</div>
+      <div class="auth-tab" onclick="switchAuthTab('register')">Register</div>
+    </div>
+    <div id="loginForm">
+      <label>Username</label>
+      <input type="text" id="loginUser" placeholder="username" autocomplete="username" />
+      <label>Password</label>
+      <input type="password" id="loginPass" placeholder="password" autocomplete="current-password" />
+      <button class="btn btn-primary" onclick="doLogin()">ENTER WORLD</button>
+    </div>
+    <div id="registerForm" style="display:none">
+      <label>Character Name</label>
+      <input type="text" id="regUser" placeholder="Your name in the world" />
+      <label>Password</label>
+      <input type="password" id="regPass" placeholder="min 8 characters" />
+      <label>Email (optional)</label>
+      <input type="email" id="regEmail" placeholder="for account recovery" />
+      <label>Race</label>
+      <div class="race-grid" id="regRaceGrid">
+        <div class="race-btn active" data-race="human">Human</div>
+        <div class="race-btn" data-race="dwarf">Dwarf</div>
+        <div class="race-btn" data-race="atavian">Atavian</div>
+        <div class="race-btn" data-race="rajamalan">Rajamalan</div>
+        <div class="race-btn" data-race="xoran">Xoran</div>
+        <div class="race-btn" data-race="grook">Grook</div>
+        <div class="race-btn" data-race="mhun">Mhun</div>
+        <div class="race-btn" data-race="troll">Troll</div>
+        <div class="race-btn" data-race="horkval">Horkval</div>
+        <div class="race-btn" data-race="siren">Siren</div>
+      </div>
+      <label>Class</label>
+      <div class="race-grid" id="regClassGrid">
+        <div class="race-btn active" data-class="adventurer">Adventurer</div>
+        <div class="race-btn" data-class="magi">Magi</div>
+        <div class="race-btn" data-class="monk">Monk</div>
+        <div class="race-btn" data-class="paladin">Paladin</div>
+        <div class="race-btn" data-class="serpentlord">Serpentlord</div>
+        <div class="race-btn" data-class="occultist">Occultist</div>
+        <div class="race-btn" data-class="bard">Bard</div>
+        <div class="race-btn" data-class="blademaster">Blademaster</div>
+        <div class="race-btn" data-class="druid">Druid</div>
+        <div class="race-btn" data-class="priest">Priest</div>
+        <div class="race-btn" data-class="alchemist">Alchemist</div>
+        <div class="race-btn" data-class="apostate">Apostate</div>
+        <div class="race-btn" data-class="depthswalker">Depthswalker</div>
+        <div class="race-btn" data-class="infernal">Infernal</div>
+        <div class="race-btn" data-class="jester">Jester</div>
+        <div class="race-btn" data-class="pariah">Pariah</div>
+        <div class="race-btn" data-class="psion">Psion</div>
+        <div class="race-btn" data-class="runewarden">Runewarden</div>
+        <div class="race-btn" data-class="sentinel">Sentinel</div>
+        <div class="race-btn" data-class="serpent">Serpent</div>
+        <div class="race-btn" data-class="shaman">Shaman</div>
+        <div class="race-btn" data-class="sylvan">Sylvan</div>
+        <div class="race-btn" data-class="unnameable">Unnameable</div>
+      </div>
+      <button class="btn btn-primary" onclick="doRegister()">ENTER WORLD</button>
+    </div>
+    <p class="err-msg" id="authErr"></p>
+  </div>
+</div>
+
+<!-- ══════════════════════════ CHAR SELECT -->
+<div id="charScreen" class="screen">
+  <div class="char-box">
+    <h2>SELECT CHARACTER</h2>
+    <div class="char-list" id="charList"><p style="color:var(--muted);font-size:12px">Loading...</p></div>
+    <hr class="char-divider" />
+    <span class="char-create-toggle" onclick="toggleCreateChar()">+ Create new character</span>
+    <div id="createCharForm">
+      <label>Name</label>
+      <input type="text" id="newCharName" placeholder="Character name" maxlength="30" />
+      <label>Race</label>
+      <div class="race-grid" id="raceGrid">
+        <div class="race-btn active" data-race="human">Human</div>
+        <div class="race-btn" data-race="dwarf">Dwarf</div>
+        <div class="race-btn" data-race="atavian">Atavian</div>
+        <div class="race-btn" data-race="rajamalan">Rajamalan</div>
+        <div class="race-btn" data-race="xoran">Xoran</div>
+        <div class="race-btn" data-race="grook">Grook</div>
+        <div class="race-btn" data-race="mhun">Mhun</div>
+        <div class="race-btn" data-race="troll">Troll</div>
+        <div class="race-btn" data-race="horkval">Horkval</div>
+        <div class="race-btn" data-race="siren">Siren</div>
+      </div>
+      <label>Class</label>
+      <div class="race-grid" id="classGrid">
+        <div class="race-btn active" data-class="adventurer">Adventurer</div>
+        <div class="race-btn" data-class="magi">Magi</div>
+        <div class="race-btn" data-class="monk">Monk</div>
+        <div class="race-btn" data-class="paladin">Paladin</div>
+        <div class="race-btn" data-class="serpentlord">Serpentlord</div>
+        <div class="race-btn" data-class="occultist">Occultist</div>
+        <div class="race-btn" data-class="bard">Bard</div>
+        <div class="race-btn" data-class="blademaster">Blademaster</div>
+        <div class="race-btn" data-class="druid">Druid</div>
+        <div class="race-btn" data-class="priest">Priest</div>
+        <div class="race-btn" data-class="alchemist">Alchemist</div>
+        <div class="race-btn" data-class="apostate">Apostate</div>
+        <div class="race-btn" data-class="depthswalker">Depthswalker</div>
+        <div class="race-btn" data-class="infernal">Infernal</div>
+        <div class="race-btn" data-class="jester">Jester</div>
+        <div class="race-btn" data-class="pariah">Pariah</div>
+        <div class="race-btn" data-class="psion">Psion</div>
+        <div class="race-btn" data-class="runewarden">Runewarden</div>
+        <div class="race-btn" data-class="sentinel">Sentinel</div>
+        <div class="race-btn" data-class="serpent">Serpent</div>
+        <div class="race-btn" data-class="shaman">Shaman</div>
+        <div class="race-btn" data-class="sylvan">Sylvan</div>
+        <div class="race-btn" data-class="unnameable">Unnameable</div>
+      </div>
+      <button class="btn btn-success" onclick="doCreateChar()" style="margin-top:1rem">CREATE</button>
+    </div>
+    <p class="err-msg" id="charErr"></p>
+  </div>
+</div>
+
+<!-- ══════════════════════════ GAME -->
+<div id="gameScreen" class="screen">
+
+  <!-- Vitals -->
+  <div id="vitals">
+    <div id="charName">...</div>
+    <div class="bar-group bar-hp"><span class="bar-label">HP</span><div class="bar"><div class="bar-fill" id="hpBar" style="width:100%"></div></div><span class="bar-val" id="hpVal">100/100</span></div>
+    <div class="bar-group bar-mp"><span class="bar-label">MP</span><div class="bar"><div class="bar-fill" id="mpBar" style="width:100%"></div></div><span class="bar-val" id="mpVal">100/100</span></div>
+    <div class="bar-group bar-ep"><span class="bar-label">EP</span><div class="bar"><div class="bar-fill" id="epBar" style="width:100%"></div></div><span class="bar-val" id="epVal">100/100</span></div>
+    <div class="bar-group" style="margin-left:auto">
+      <span style="font-size:10px;color:var(--warn)" title="Gold">⬡</span>
+      <span id="goldVal" style="font-size:11px;color:var(--warn);min-width:30px">0</span>
+    </div>
+    <div id="statsDisplay" style="display:none;font-size:10px;color:var(--muted);margin-left:.3rem;cursor:default" title="Character stats"></div>
+    <div id="roleTag" style="display:none">ADMIN</div>
+    <button id="adminToggle" style="display:none" onclick="toggleAdminPanel()">⚙ PANEL</button>
+  </div>
+
+  <!-- Play area -->
+  <div id="playArea">
+
+    <!-- Canvas + text column -->
+    <div id="canvasCol">
+      <div id="phaserMount"></div>
+      <div id="roomInfo">
+        <div id="roomName">Connecting...</div>
+        <div id="roomDesc"></div>
+        <img id="roomImage" src="" alt="" style="display:none;width:100%;max-height:160px;object-fit:cover;image-rendering:pixelated;margin-top:.4rem;border-radius:3px;border:1px solid var(--border);" />
+      </div>
+      <div id="logArea"></div>
+      <div id="exitsArea">
+        <span class="elabel">EXITS</span>
+        <div id="exitBtns"></div>
+      </div>
+      <div id="cmdBar">
+        <input id="cmdInput" type="text" placeholder="say hello  |  tell Name msg  |  talk npc_id  |  get id  |  inv  |  look" maxlength="500" />
+        <button id="cmdSend" onclick="submitCommand()">SEND</button>
+      </div>
+    </div>
+
+    <!-- Side: players / npcs / ground / inv / equip tabs -->
+    <div id="sidePanel">
+      <div style="padding:.3rem .5rem;border-bottom:1px solid var(--border);display:flex;gap:.3rem;flex-shrink:0">
+        <button onclick="openWBModal()" style="flex:1;background:var(--accent);border:none;color:#fff;font-family:var(--pixel);font-size:7px;padding:.3rem;cursor:pointer;border-radius:2px" title="Worldbuilder — submit creation ideas">✦ CREATE</button>
+      </div>
+      <div class="side-tabs">
+        <div class="side-tab active" onclick="sideTab('players')">Here</div>
+        <div class="side-tab" onclick="sideTab('npcs')">NPCs</div>
+        <div class="side-tab" onclick="sideTab('ground')">Floor</div>
+        <div class="side-tab" onclick="sideTab('inv')">Bag</div>
+        <div class="side-tab" onclick="sideTab('equip')">Equip</div>
+      </div>
+
+      <div class="side-content active" id="scPlayers">
+        <ul class="side-list" id="playerList"><li class="empty-msg">none</li></ul>
+      </div>
+      <div class="side-content" id="scNpcs">
+        <ul class="side-list" id="npcList"><li class="empty-msg">none</li></ul>
+      </div>
+      <div class="side-content" id="scGround">
+        <ul class="side-list" id="itemList"><li class="empty-msg">none</li></ul>
+      </div>
+      <div class="side-content" id="scInv">
+        <ul class="side-list" id="invList"><li class="empty-msg">empty</li></ul>
+      </div>
+      <div class="side-content" id="scEquip">
+        <div style="padding:.5rem .75rem">
+          <div class="equip-grid" id="equipGrid">
+            <div class="equip-slot"><div class="equip-slot-name">Mainhand</div><div class="equip-slot-item equip-slot-empty" id="eq-mainhand">—</div></div>
+            <div class="equip-slot"><div class="equip-slot-name">Offhand</div><div class="equip-slot-item equip-slot-empty" id="eq-offhand">—</div></div>
+            <div class="equip-slot"><div class="equip-slot-name">Head</div><div class="equip-slot-item equip-slot-empty" id="eq-head">—</div></div>
+            <div class="equip-slot"><div class="equip-slot-name">Chest</div><div class="equip-slot-item equip-slot-empty" id="eq-chest">—</div></div>
+            <div class="equip-slot"><div class="equip-slot-name">Legs</div><div class="equip-slot-item equip-slot-empty" id="eq-legs">—</div></div>
+            <div class="equip-slot"><div class="equip-slot-name">Hands</div><div class="equip-slot-item equip-slot-empty" id="eq-hands">—</div></div>
+            <div class="equip-slot"><div class="equip-slot-name">Feet</div><div class="equip-slot-item equip-slot-empty" id="eq-feet">—</div></div>
+            <div class="equip-slot"><div class="equip-slot-name">Ring</div><div class="equip-slot-item equip-slot-empty" id="eq-ring">—</div></div>
+            <div class="equip-slot"><div class="equip-slot-name">Neck</div><div class="equip-slot-item equip-slot-empty" id="eq-neck">—</div></div>
+          </div>
+          <button onclick="socket?.emit('equipment')" style="width:100%;margin-top:.5rem;background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:.3rem;cursor:pointer;font-size:11px;border-radius:2px">↺ Refresh</button>
+          <hr style="border-color:var(--border);margin:.5rem 0">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.25rem">
+            <span style="font-size:10px;color:var(--muted)">SKILLS</span>
+            <button onclick="socket?.emit('skills')" style="background:none;border:none;color:var(--accent);font-size:10px;cursor:pointer">↺</button>
+          </div>
+          <div id="skillList" style="font-size:11px;color:var(--dim);font-style:italic">Type 'skills' to load.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Admin panel (slide-in overlay) -->
+    <div id="adminPanel">
+      <h2 style="display:flex;justify-content:space-between;align-items:center">
+        <span>⚙ ADMIN</span>
+        <button onclick="toggleAdminPanel()" style="background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;line-height:1">✕</button>
+      </h2>
+      <div class="admin-tabs">
+        <div class="admin-tab active" onclick="adminTab('room')">Room</div>
+        <div class="admin-tab" onclick="adminTab('items')">Items</div>
+        <div class="admin-tab" onclick="adminTab('npcs')">NPCs</div>
+        <div class="admin-tab" onclick="adminTab('ai')">AI</div>
+        <div class="admin-tab" onclick="adminTab('agent')">Agent</div>
+        <div class="admin-tab" onclick="adminTab('subs')">Review</div>
+      </div>
+
+      <div class="admin-content active" id="acRoom">
+        <div id="adminRoomMeta">—</div>
+
+        <details><summary>Dig new room</summary>
+          <div class="arow">
+            <div class="af"><label>Dir</label><select id="digDir"><option>n</option><option>s</option><option>e</option><option>w</option><option>ne</option><option>nw</option><option>se</option><option>sw</option><option>u</option><option>d</option><option>in</option><option>out</option></select></div>
+            <div class="af"><label>Terrain</label><select id="digTerrain"><option>plains</option><option>forest</option><option>city</option><option>dungeon</option><option>cave</option><option>mountain</option><option>desert</option><option>tundra</option><option>ocean</option><option>river</option><option>ethereal</option><option>divine</option></select></div>
+          </div>
+          <div class="af"><label>Name</label><input type="text" id="digName" /></div>
+          <div class="af"><label>Short desc</label><textarea id="digDesc"></textarea></div>
+          <button class="abtn" onclick="adminDig()">⬡ DIG</button>
+        </details>
+
+        <details><summary>Link existing room</summary>
+          <div class="arow">
+            <div class="af"><label>Dir</label><select id="linkDir"><option>n</option><option>s</option><option>e</option><option>w</option><option>ne</option><option>nw</option><option>se</option><option>sw</option><option>u</option><option>d</option><option>in</option><option>out</option></select></div>
+          </div>
+          <div class="af"><label>Target room ID</label><input type="text" id="linkTarget" /></div>
+          <div class="arow">
+            <div class="af"><label><input type="checkbox" id="linkBidi" checked /> Bidi</label></div>
+            <div class="af"><label><input type="checkbox" id="linkDoor" /> Door</label></div>
+          </div>
+          <button class="abtn" onclick="adminLink()">⬡ LINK</button>
+        </details>
+
+        <details><summary>Unlink exit</summary>
+          <div class="af"><label>Direction</label><select id="unlinkDir"><option>n</option><option>s</option><option>e</option><option>w</option><option>ne</option><option>nw</option><option>se</option><option>sw</option><option>u</option><option>d</option><option>in</option><option>out</option></select></div>
+          <button class="abtn danger" onclick="adminUnlink()">✕ UNLINK</button>
+        </details>
+
+        <details><summary>Edit room</summary>
+          <div class="af"><label>Name</label><input type="text" id="editName" /></div>
+          <div class="af"><label>Short desc</label><textarea id="editDesc"></textarea></div>
+          <div class="arow">
+            <div class="af"><label>Light</label><select id="editLight"><option>bright</option><option>normal</option><option>dim</option><option>dark</option><option>pitch_black</option></select></div>
+            <div class="af"><label>Cap</label><input type="number" id="editCap" min="0" max="500" /></div>
+          </div>
+          <div class="arow">
+            <div class="af"><label><input type="checkbox" id="editSafe" /> Safe</label></div>
+            <div class="af"><label><input type="checkbox" id="editIndoor" /> Indoor</label></div>
+          </div>
+          <button class="abtn" onclick="adminSetRoom()">✎ SAVE</button>
+        </details>
+
+        <div class="af" style="margin-top:.6rem"><label>Teleport to room ID</label>
+          <div style="display:flex;gap:.35rem"><input type="text" id="tpTarget" style="flex:1" /><button class="abtn" style="width:auto;margin-top:0" onclick="adminTeleport()">GO</button></div>
+        </div>
+        <button class="abtn" onclick="adminLook()" style="margin-top:.5rem">↺ Refresh overlay</button>
+        <button class="abtn" onclick="socket?.emit('admin:room:genimage')" style="margin-top:.3rem;color:var(--accent2)">🎨 Generate Pixel Art</button>
+        <button class="abtn" onclick="adminCopyDigTemplate()" style="margin-top:.3rem;color:var(--accent3)" title="Paste a dig command template into the chat bar">📋 Dig Template</button>
+      </div>
+
+      <div class="admin-content" id="acItems">
+        <details open><summary>Place item in room</summary>
+          <div class="af"><label>Template ID</label><input type="text" id="placeTemplateId" /></div>
+          <div class="arow">
+            <div class="af"><label><input type="checkbox" id="placePersistent" /> Persistent</label></div>
+            <div class="af"><label>Duration (sec)</label><input type="number" id="placeDuration" /></div>
+          </div>
+          <div class="af"><label>Stack</label><input type="number" id="placeStack" value="1" min="1" /></div>
+          <button class="abtn" onclick="adminPlaceItem()">+ PLACE</button>
+        </details>
+        <details><summary>Remove item</summary>
+          <div class="af"><label>Item ID</label>
+            <div style="display:flex;gap:.35rem"><input type="text" id="removeItemId" style="flex:1" /><button class="abtn danger" style="width:auto;margin-top:0" onclick="adminRemoveItem()">✕</button></div>
+          </div>
+        </details>
+        <details><summary>Create item template</summary>
+          <div class="af"><label>Name</label><input type="text" id="tmplName" /></div>
+          <div class="arow">
+            <div class="af"><label>Type</label><select id="tmplType"><option>weapon</option><option>armor</option><option>clothing</option><option>consumable</option><option>tool</option><option>furniture</option><option>misc</option></select></div>
+            <div class="af"><label>Weight</label><input type="number" id="tmplWeight" value="1" min="0" step="0.1" /></div>
+          </div>
+          <div class="af"><label>Description</label><textarea id="tmplDesc" rows="2"></textarea></div>
+          <div class="arow">
+            <div class="af"><label><input type="checkbox" id="tmplStackable" /> Stackable</label></div>
+            <div class="af"><label>Max stack</label><input type="number" id="tmplMaxStack" value="1" min="1" /></div>
+          </div>
+          <div class="af"><label>Attributes (JSON)</label><textarea id="tmplAttrs" rows="3" placeholder='{"damage":"1d6"}'></textarea></div>
+          <button class="abtn" onclick="adminCreateTemplate()">✦ CREATE TEMPLATE</button>
+          <div id="tmplResult" style="font-size:10px;color:var(--success);margin-top:.3rem"></div>
+        </details>
+      </div>
+
+      <div class="admin-content" id="acNpcs">
+        <details open><summary>Place NPC</summary>
+          <div class="af"><label>Name</label><input type="text" id="npcName" /></div>
+          <div class="af"><label>Title</label><input type="text" id="npcTitle" placeholder="the innkeeper" /></div>
+          <div class="arow">
+            <div class="af"><label>Race</label><select id="npcRace"><option>human</option><option>dwarf</option><option>atavian</option><option>rajamalan</option><option>xoran</option><option>grook</option><option>mhun</option><option>troll</option><option>horkval</option><option>siren</option></select></div>
+            <div class="af"><label>Role</label><input type="text" id="npcRole" value="citizen" /></div>
+          </div>
+          <div class="af"><label>Description</label><textarea id="npcDesc" rows="2"></textarea></div>
+          <div class="af"><label><input type="checkbox" id="npcCombatant" /> Combatant (hostile)</label></div>
+          <div class="arow" id="npcCombatFields" style="display:none">
+            <div class="af"><label>HP</label><input type="number" id="npcMaxHp" value="100" min="1" /></div>
+            <div class="af"><label>ATK</label><input type="number" id="npcAtk" value="10" min="1" /></div>
+            <div class="af"><label>DEF</label><input type="number" id="npcArmor" value="0" min="0" /></div>
+          </div>
+          <div class="arow" id="npcRewardFields" style="display:none">
+            <div class="af"><label>XP</label><input type="number" id="npcXp" value="25" min="0" /></div>
+            <div class="af"><label>Gold</label><input type="number" id="npcGold" value="0" min="0" /></div>
+            <div class="af"><label>Respawn(s)</label><input type="number" id="npcRespawn" value="300" min="0" /></div>
+          </div>
+          <div class="af"><label>Dialogue (JSON array)</label><textarea id="npcDialogue" rows="3" placeholder='[{"keywords":["hello"],"response":"Greetings, traveller."}]'></textarea></div>
+          <button class="abtn" onclick="adminNpcPlace()">+ PLACE NPC</button>
+        </details>
+        <details><summary>Remove NPC</summary>
+          <div class="af"><label>NPC ID</label>
+            <div style="display:flex;gap:.35rem"><input type="text" id="removeNpcId" style="flex:1" /><button class="abtn danger" style="width:auto;margin-top:0" onclick="adminNpcRemove()">✕</button></div>
+          </div>
+        </details>
+        <details><summary>Edit dialogue</summary>
+          <div class="af"><label>NPC ID</label><input type="text" id="dialogueNpcId" /></div>
+          <div class="af"><label>Dialogue (JSON array)</label><textarea id="dialogueJson" rows="4" placeholder='[{"keywords":["hello"],"response":"Hi there."}]'></textarea></div>
+          <button class="abtn" onclick="adminNpcDialogue()">✎ UPDATE DIALOGUE</button>
+        </details>
+      </div>
+
+      <div class="admin-content" id="acAI">
+        <div class="arow">
+          <div class="af"><label>Extend dir</label><select id="aiDir"><option>n</option><option>s</option><option>e</option><option>w</option><option>ne</option><option>nw</option><option>se</option><option>sw</option><option>u</option><option>d</option></select></div>
+          <div class="af"><label>Count</label><input type="number" id="aiCount" value="3" min="1" max="8" /></div>
+        </div>
+        <div class="af"><label>Theme / prompt</label><textarea id="aiPrompt" rows="4"></textarea></div>
+        <button class="abtn" onclick="adminAIGenerate()">✨ GENERATE</button>
+        <div id="aiDraftPreview" style="display:none;margin-top:.6rem">
+          <div style="font-size:10px;color:var(--warn);margin-bottom:.35rem">DRAFT PREVIEW</div>
+          <div id="aiDraftContent" style="font-size:11px;color:var(--muted);line-height:1.6;max-height:160px;overflow-y:auto"></div>
+          <div style="display:flex;gap:.35rem;margin-top:.4rem">
+            <button class="abtn" onclick="adminAICommit()" style="flex:1;color:var(--success)">✓ COMMIT</button>
+            <button class="abtn danger" onclick="adminAIDiscard()" style="flex:1">✕ DISCARD</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="admin-content" id="acAgent">
+        <!-- Mode toggle -->
+        <div style="display:flex;gap:.3rem;margin-bottom:.5rem">
+          <button id="agentModeNew" class="abtn" onclick="setAgentMode('new')" style="flex:1;color:var(--accent3)">✦ New Area</button>
+          <button id="agentModeExpand" class="abtn" onclick="setAgentMode('expand')" style="flex:1">⊕ Expand</button>
+        </div>
+        <div id="agentModeLabel" style="font-size:10px;color:var(--warn);margin-bottom:.5rem;line-height:1.5">
+          Builds a brand-new area from the current room. Commits rooms, NPCs, items and pixel art in one pass.
+        </div>
+        <div class="af"><label>Theme / prompt</label>
+          <textarea id="agentPrompt" rows="3" placeholder="A crumbling lighthouse on jagged sea cliffs, haunted by the ghost of its last keeper..."></textarea>
+        </div>
+        <div class="arow">
+          <div class="af"><label>Exit dir</label>
+            <select id="agentDir"><option>n</option><option>s</option><option>e</option><option>w</option><option>ne</option><option>nw</option><option>se</option><option>sw</option><option>u</option><option>d</option></select>
+          </div>
+          <div class="af"><label>Rooms</label>
+            <input type="number" id="agentRooms" value="5" min="1" max="12" />
+          </div>
+        </div>
+        <div class="arow">
+          <div class="af"><label><input type="checkbox" id="agentNpcs" checked /> NPCs</label></div>
+          <div class="af"><label><input type="checkbox" id="agentItems" checked /> Items</label></div>
+        </div>
+        <button class="abtn" id="agentRunBtn" onclick="adminAgentRun()" style="color:var(--accent3);margin-top:.4rem">✦ RUN AGENT</button>
+        <div id="agentProgress" style="display:none;margin-top:.6rem">
+          <div style="font-size:10px;color:var(--muted);margin-bottom:.3rem">PROGRESS</div>
+          <div id="agentLog" style="font-size:10px;color:var(--text);line-height:1.8;max-height:160px;overflow-y:auto;background:var(--bg);padding:.4rem;border-radius:3px"></div>
+        </div>
+        <div id="agentResult" style="display:none;margin-top:.5rem">
+          <div style="font-size:10px;color:var(--success);margin-bottom:.25rem">✓ COMPLETE</div>
+          <div id="agentSummary" style="font-size:10px;color:var(--muted);line-height:1.7"></div>
+          <img id="agentEntryImage" src="" alt="" style="display:none;width:100%;image-rendering:pixelated;border-radius:3px;margin-top:.4rem;border:1px solid var(--border)" />
+        </div>
+      </div>
+
+      <div class="admin-content" id="acSubs">
+        <div style="display:flex;gap:.3rem;margin-bottom:.4rem">
+          <button class="abtn" style="flex:1" onclick="adminLoadSubs('pending')">Pending</button>
+          <button class="abtn" style="flex:1" onclick="adminLoadSubs('approved')">Approved</button>
+        </div>
+        <div id="subsList" style="font-size:11px;color:var(--muted);line-height:1.7">Click Pending to load.</div>
+      </div>
+    </div>
+
+  </div><!-- /playArea -->
+</div><!-- /gameScreen -->
+
+<!-- ══════════════════════════ WORLDBUILDER MODAL -->
+<div id="wbModal">
+  <div class="wb-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
+      <h2 style="margin:0">✦ WORLDBUILDER</h2>
+      <button onclick="closeWBModal()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer">✕</button>
+    </div>
+
+    <!-- Step 1: Type + description -->
+    <div class="wb-step active" id="wbStep1">
+      <p style="font-size:11px;color:var(--muted);margin-bottom:.75rem;line-height:1.6">
+        Describe an item or room you'd like to add to the world. The AI will generate attributes and pixel art, then submit to the admin for review.
+      </p>
+      <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:.4rem">Type</label>
+      <div class="wb-type-grid">
+        <div class="wb-type-btn active" data-type="weapon">Weapon</div>
+        <div class="wb-type-btn" data-type="armor">Armor</div>
+        <div class="wb-type-btn" data-type="clothing">Clothing</div>
+        <div class="wb-type-btn" data-type="consumable">Consumable</div>
+        <div class="wb-type-btn" data-type="tool">Tool</div>
+        <div class="wb-type-btn" data-type="furniture">Furniture</div>
+        <div class="wb-type-btn" data-type="room">Room</div>
+      </div>
+      <label style="font-size:11px;color:var(--muted);display:block;margin:.6rem 0 .3rem">Description</label>
+      <textarea id="wbDescription" rows="5" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:3px;color:var(--text);padding:.5rem;font-family:var(--mono);font-size:12px;resize:vertical" placeholder="A worn iron sword, its blade etched with ancient runic patterns that glow faintly in darkness..."></textarea>
+      <p class="err-msg" id="wbErr" style="min-height:1em;margin-top:.4rem;font-size:11px;color:var(--danger)"></p>
+      <button class="btn btn-primary" onclick="wbPreview()" id="wbPreviewBtn" style="margin-top:.6rem">GENERATE PREVIEW</button>
+    </div>
+
+    <!-- Step 2: Preview + confirm -->
+    <div class="wb-step" id="wbStep2">
+      <div class="wb-preview-card" id="wbPreviewCard"></div>
+      <div class="lore-ok" id="wbLoreOk" style="display:none">✓ Lore consistent</div>
+      <div class="lore-warn" id="wbLoreWarn" style="display:none"></div>
+      <label style="font-size:11px;color:var(--muted);display:block;margin:.75rem 0 .3rem">Additional notes for admin</label>
+      <textarea id="wbNotes" rows="2" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:3px;color:var(--text);padding:.5rem;font-family:var(--mono);font-size:12px;resize:vertical" placeholder="Optional context or lore notes..."></textarea>
+      <div style="display:flex;gap:.5rem;margin-top:.75rem">
+        <button class="btn btn-muted" onclick="wbBack()" style="flex:1">← BACK</button>
+        <button class="btn btn-success" onclick="wbSubmit()" id="wbSubmitBtn" style="flex:2">SUBMIT FOR REVIEW</button>
+      </div>
+    </div>
+
+    <!-- Step 3: Success -->
+    <div class="wb-step" id="wbStep3">
+      <div style="text-align:center;padding:1.5rem 0">
+        <div style="font-size:28px;margin-bottom:.5rem">✦</div>
+        <div style="font-family:var(--pixel);font-size:10px;color:var(--success);margin-bottom:.75rem">SUBMITTED!</div>
+        <p style="font-size:12px;color:var(--muted);line-height:1.7" id="wbSuccessMsg">Your creation has been submitted for admin review. If approved, it will be added to the world.</p>
+        <p style="font-size:10px;color:var(--dim);margin-top:.5rem" id="wbSubmissionId"></p>
+      </div>
+      <button class="btn btn-muted" onclick="wbReset()" style="margin-top:.5rem">CREATE ANOTHER</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════
+// State
+// ═══════════════════════════════════════════════════
+const API = '';
+let token = localStorage.getItem('pmmo_token') || '';
+let socket = null;
+let currentRoom = null;
+let players = new Map();
+let groundItems = new Map();
+let inventory = new Map();
+let isAdmin = false;
+let selectedRace = 'human';
+let selectedClass = 'adventurer';
+let npcs = new Map();
+let equipment = {};
+let charStats = {};
+let charLevel = 1;
+let charRace  = 'human';
+let charClass = 'adventurer';
+let phaserGame = null;
+let gameScene = null;
+
+// Worldbuilder state
+let wbType = 'weapon';
+let wbPreviewData = null;
+
+// Registration state
+let regRace = 'human';
+let regClass = 'adventurer';
+
+// ═══════════════════════════════════════════════════
+// Auth
+// ═══════════════════════════════════════════════════
+function switchAuthTab(tab) {
+  document.querySelectorAll('.auth-tab').forEach((t,i) => t.classList.toggle('active', ['login','register'][i]===tab));
+  document.getElementById('loginForm').style.display   = tab==='login'    ? '' : 'none';
+  document.getElementById('registerForm').style.display = tab==='register' ? '' : 'none';
+  document.getElementById('authErr').textContent = '';
+}
+
+async function doLogin() {
+  await authRequest('/api/auth/login', {
+    username: document.getElementById('loginUser').value.trim(),
+    password: document.getElementById('loginPass').value,
+  });
+}
+async function doRegister() {
+  const email = document.getElementById('regEmail').value.trim();
+  document.getElementById('authErr').textContent = '';
+  try {
+    const r = await apiFetch('/api/auth/register', {
+      username: document.getElementById('regUser').value.trim(),
+      password: document.getElementById('regPass').value,
+      race: regRace,
+      class: regClass,
+      ...(email ? { email } : {}),
+    });
+    token = r.token;
+    localStorage.setItem('pmmo_token', token);
+    playAs(r.character_id);
+  } catch(e) { document.getElementById('authErr').textContent = e.message; }
+}
+
+async function authRequest(path, body) {
+  document.getElementById('authErr').textContent = '';
+  try {
+    const r = await apiFetch(path, { method:'POST', body });
+    token = r.token;
+    localStorage.setItem('pmmo_token', token);
+    showScreen('charScreen');
+    loadCharacters();
+  } catch(e) { document.getElementById('authErr').textContent = e.message; }
+}
+
+if (token) {
+  apiFetch('/api/auth/characters').then(() => { showScreen('charScreen'); loadCharacters(); }).catch(() => { token=''; localStorage.removeItem('pmmo_token'); });
+}
+
+// ═══════════════════════════════════════════════════
+// Character screen
+// ═══════════════════════════════════════════════════
+async function loadCharacters() {
+  const chars = await apiFetch('/api/auth/characters');
+  if (chars.length === 1) { playAs(chars[0].id); return; }
+  const list = document.getElementById('charList');
+  if (!chars.length) {
+    list.innerHTML = '<p style="color:var(--muted);font-size:12px;font-style:italic">No characters. Create one below.</p>';
+    document.getElementById('createCharForm').style.display = 'block';
+    return;
+  }
+  list.innerHTML = chars.map(c => `
+    <div class="char-card" onclick="playAs('${c.id}')">
+      <div><div class="cname">${c.name}</div><div class="cinfo">Lv.${c.level} ${c.race} ${c.class}</div></div>
+      <div style="font-size:18px;color:var(--accent)">▶</div>
+    </div>`).join('');
+}
+
+function toggleCreateChar() {
+  const f = document.getElementById('createCharForm');
+  f.style.display = f.style.display === 'none' ? 'block' : 'none';
+}
+document.querySelectorAll('#raceGrid .race-btn').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('#raceGrid .race-btn').forEach(r => r.classList.remove('active'));
+  b.classList.add('active'); selectedRace = b.dataset.race;
+}));
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('#classGrid .race-btn').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('#classGrid .race-btn').forEach(r => r.classList.remove('active'));
+    b.classList.add('active'); selectedClass = b.dataset.class;
+  }));
+  document.querySelectorAll('#regRaceGrid .race-btn').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('#regRaceGrid .race-btn').forEach(r => r.classList.remove('active'));
+    b.classList.add('active'); regRace = b.dataset.race;
+  }));
+  document.querySelectorAll('#regClassGrid .race-btn').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('#regClassGrid .race-btn').forEach(r => r.classList.remove('active'));
+    b.classList.add('active'); regClass = b.dataset.class;
+  }));
+});
+
+async function doCreateChar() {
+  const name = document.getElementById('newCharName').value.trim();
+  document.getElementById('charErr').textContent = '';
+  if (!name) { document.getElementById('charErr').textContent = 'Name required.'; return; }
+  try {
+    const c = await apiFetch('/api/auth/characters', { method:'POST', body:{ name, race: selectedRace, class: selectedClass } });
+    playAs(c.id);
+  } catch(e) { document.getElementById('charErr').textContent = e.message; }
+}
+
+// ═══════════════════════════════════════════════════
+// Phaser scene
+// ═══════════════════════════════════════════════════
+
+// Terrain background data (wall colours + floor colours)
+const TERRAIN_BG = {
+  city:    { wall:[0x2a2418,0x332b1c], floor:[0x4a4430,0x3a3424] },
+  forest:  { wall:[0x111e0f,0x162412], floor:[0x1e3a14,0x182e10] },
+  plains:  { wall:[0x1a2c10,0x223514], floor:[0x2a3e18,0x223214] },
+  void:    { wall:[0x08091a,0x0c0e22], floor:[0x10122a,0x0e1020] },
+  ocean:   { wall:[0x09182e,0x0d2040], floor:[0x0e2848,0x0a1e38] },
+  cave:    { wall:[0x151008,0x1c150a], floor:[0x24180c,0x1c1208] },
+  dungeon: { wall:[0x1a1520,0x201a25], floor:[0x1e1828,0x181420] },
+  mountain:{ wall:[0x2a2a35,0x303040], floor:[0x2a2a38,0x222230] },
+  desert:  { wall:[0x4a3a15,0x3a2c10], floor:[0x48381a,0x382c12] },
+  tundra:  { wall:[0x2a3040,0x3a4050], floor:[0x283040,0x202838] },
+  ethereal:{ wall:[0x201535,0x281a40], floor:[0x201830,0x181228] },
+  divine:  { wall:[0x352015,0x402818], floor:[0x382018,0x2c1810] },
+  river:   { wall:[0x0f1e30,0x152535], floor:[0x102040,0x0c1830] },
+};
+
+// ─── Pixel-Knights sprite system ─────────────────────────────────────────────
+
+const _RACE_SKIN = {
+  human:'#d4a574', elf:'#c8d4a0', dwarf:'#c89060',
+  gnome:'#b0c890', halfling:'#d4b080', orc:'#90b060',
+  troll:'#708060', undead:'#9aaa96', merfolk:'#88b8c8',
+  celestial:'#e8d8b0', immortal:'#f0e8c0',
+};
+const _RACE_HAIR = {
+  human:'#7a4010', elf:'#c8c060', dwarf:'#8B3a10', gnome:'#9090e0',
+  halfling:'#805030', orc:'#303020', troll:'#304020', undead:'#505050',
+  merfolk:'#40a0c0', celestial:'#f0d860', immortal:'#e8c040',
+};
+const _RACE_EYE = {
+  human:'#5a3010', elf:'#406030', dwarf:'#5a3010', gnome:'#4060a0',
+  halfling:'#603020', orc:'#802020', troll:'#806020', undead:'#cc2020',
+  merfolk:'#206080', celestial:'#c0a020', immortal:'#c09010',
+};
+const _CLASS_BODY = {
+  adventurer:'#7c6af7', warrior:'#8a4a3a', knight:'#5a6a8a', paladin:'#8a7a3a',
+  ranger:'#4a7a4a', rogue:'#4a3a6a', assassin:'#3a2a4a', bard:'#7a4a6a',
+  mage:'#4a5a8a', wizard:'#3a4a7a', sorcerer:'#6a3a8a', warlock:'#4a2a5a',
+  druid:'#4a6a3a', shaman:'#5a6a4a', cleric:'#7a7a4a', priest:'#8a7a5a',
+  monk:'#6a5a3a', berserker:'#8a3a2a', necromancer:'#3a4a3a', enchanter:'#6a4a7a',
+  summoner:'#5a4a7a', alchemist:'#5a7a4a', artificer:'#5a5a6a',
+};
+const _RACE_CONFIG = {
+  human:    { hs:1.00, ws:1.00, feat:['hair_short'] },
+  elf:      { hs:1.10, ws:0.88, feat:['pointed_ears','hair_long'] },
+  dwarf:    { hs:0.82, ws:1.18, feat:['beard','hair_short'] },
+  gnome:    { hs:0.76, ws:0.86, feat:['hair_tuft','big_eyes'] },
+  halfling: { hs:0.80, ws:0.88, feat:['hair_curly','rosy_cheeks'] },
+  orc:      { hs:1.04, ws:1.10, feat:['tusks','heavy_brow'] },
+  troll:    { hs:1.18, ws:1.24, feat:['heavy_brow','thick_neck'] },
+  undead:   { hs:0.95, ws:0.82, feat:['hollow_eyes','gaunt'] },
+  merfolk:  { hs:1.00, ws:0.90, feat:['fin_ears','tail'] },
+  celestial:{ hs:1.06, ws:0.94, feat:['glow','hair_flowing'] },
+  immortal: { hs:1.00, ws:1.00, feat:['halo','aura','hair_short'] },
+};
+
+const _OL = 0x06080f;
+
+function _hexInt(h) { return parseInt((h||'888888').replace('#',''),16); }
+function _tintInt(h, a) {
+  const n=_hexInt(h), r=(n>>16)&255, gg=(n>>8)&255, b=n&255;
+  const nr=a>=0?r+(255-r)*a:r*(1+a), ng=a>=0?gg+(255-gg)*a:gg*(1+a), nb=a>=0?b+(255-b)*a:b*(1+a);
+  return (Math.min(255,Math.round(nr))<<16)|(Math.min(255,Math.round(ng))<<8)|Math.min(255,Math.round(nb));
+}
+function _tintStr(h, a) { return '#'+_tintInt(h,a).toString(16).padStart(6,'0'); }
+
+// Outlined + shaded rectangle (Phaser Graphics)
+function _pSRect(g, x, y, w, h, col, hi=0.28, sh=-0.38) {
+  x=Math.round(x); y=Math.round(y);
+  w=Math.max(1,Math.round(w)); h=Math.max(1,Math.round(h));
+  g.fillStyle(_OL,1);               g.fillRect(x-1,y-1,w+2,h+2);
+  g.fillStyle(_tintInt(col,sh),1);  g.fillRect(x,y,w,h);
+  g.fillStyle(_hexInt(col),1);      g.fillRect(x,y,w-1,h-1);
+  g.fillStyle(_tintInt(col,hi),1);
+  g.fillRect(x,y,w-1,1);
+  if(h>2) g.fillRect(x,y+1,1,Math.max(1,Math.ceil(h/2)-2));
+}
+
+// Outlined + shaded circle (Phaser Graphics)
+function _pSArc(g, cx, cy, r, col, hi=0.28) {
+  cx=Math.round(cx); cy=Math.round(cy); r=Math.max(2,Math.round(r));
+  g.fillStyle(_OL,1);                g.fillCircle(cx,cy,r+1);
+  g.fillStyle(_tintInt(col,-0.3),1); g.fillCircle(cx,cy,r);
+  g.fillStyle(_hexInt(col),1);       g.fillCircle(cx,cy,r-0.6);
+  g.fillStyle(_tintInt(col,hi),1);
+  g.fillRect(cx-Math.ceil(r*0.3),cy-Math.ceil(r*0.5),Math.max(1,Math.ceil(r*0.4)),Math.max(1,Math.ceil(r*0.3)));
+}
+
+// Terrain background — wall texture + tiled floor (Phaser Graphics)
+function _drawBackground(g, W, H, terrain) {
+  const floorY = Math.round(H * 0.55);
+  const bg = TERRAIN_BG[terrain] || TERRAIN_BG.void;
+  g.fillStyle(bg.wall[0],1); g.fillRect(0,0,W,Math.round(floorY*0.5));
+  g.fillStyle(bg.wall[1],1); g.fillRect(0,Math.round(floorY*0.5),W,floorY-Math.round(floorY*0.5));
+  if (terrain==='city') {
+    for (let row=0; row<Math.ceil(floorY/6); row++) {
+      const y=row*6, off=(row%2)*6;
+      for (let x=off-3; x<W; x+=12) { g.fillStyle(0xfff0b4,0.05); g.fillRect(x,y,11,5); }
+      g.fillStyle(0x000000,0.16); g.fillRect(0,y+5,W,1);
+    }
+  } else if (terrain==='void') {
+    g.lineStyle(1,0x5050b4,0.09);
+    for (let y=4;y<floorY;y+=8) g.lineBetween(0,y,W,y);
+    for (let x=4;x<W;x+=8) g.lineBetween(x,0,x,floorY);
+  } else if (terrain==='forest') {
+    g.fillStyle(0x0a1a08,1);
+    for (const [tx,tw,th] of [[5,10,18],[30,8,14],[60,12,22],[100,9,16],[140,11,20],[180,8,14],[230,10,18],[290,9,16],[360,11,20],[440,8,14],[510,10,18],[570,9,16]]) {
+      g.fillRect(tx,floorY-th,tw,th); g.fillRect(tx+Math.floor(tw/2)-1,floorY,2,5);
+    }
+  } else if (terrain==='cave') {
+    g.fillStyle(0x000000,0.35);
+    for (const [rx,rr] of [[15,6],[45,5],[90,7],[140,5],[200,4],[280,6],[360,5],[450,7],[550,5]]) g.fillCircle(rx,5,rr);
+  } else if (terrain==='ocean') {
+    for (let row=0;row<4;row++) { g.fillStyle(0x1e508c,0.12+row*0.05); g.fillRect(0,floorY-14+row*3,W,3); }
+  }
+  const tileSize=8;
+  for (let row=0; row*tileSize+floorY<H; row++) {
+    for (let col=0; col*tileSize<W; col++) {
+      g.fillStyle((row+col)%2===0?bg.floor[0]:bg.floor[1],1);
+      g.fillRect(col*tileSize+((row%2)*4), floorY+row*tileSize, tileSize-1, tileSize-1);
+    }
+  }
+  g.fillStyle(0x000000,0.36);
+  for (let y=floorY;y<H;y+=tileSize) g.fillRect(0,y,W,1);
+  g.fillStyle(0x000000,0.26); g.fillRect(0,floorY,W,3);
+}
+
+// _drawCharSprite — cx = horizontal centre, ground = bottom of sprite
+function _drawCharSprite(g, cx, ground, appearance, scale) {
+  g.clear();
+  const race = appearance.race || 'human';
+  const rc   = _RACE_CONFIG[race] || _RACE_CONFIG.human;
+  const hs = rc.hs * scale, ws = rc.ws * scale;
+  const isImmortal = race === 'immortal';
+  const skin = _RACE_SKIN[race] || _RACE_SKIN.human;
+  const hair = _RACE_HAIR[race] || _RACE_HAIR.human;
+  const eye  = _RACE_EYE[race]  || _RACE_EYE.human;
+  const body = isImmortal ? (appearance.armorColor||'#c8a840') : (appearance.armorColor||appearance.bodyColor||_CLASS_BODY.adventurer);
+
+  // Sizing
+  const headW=Math.round(8*ws), headH=Math.round(8*hs);
+  const bodyW=Math.round(10*ws), bodyH=Math.round(9*hs);
+  const neckW=Math.round(4*ws), neckH=Math.round(2*hs);
+  const legW=Math.round(3*ws), legH=Math.round(7*hs);
+  const bootH=Math.round(2*hs), hairH=Math.round(3*hs);
+
+  // Y positions (bottom-up)
+  const bootBottom = Math.round(ground);
+  const legTop     = bootBottom - legH;
+  const bodyBottom = legTop     + Math.round(hs);
+  const bodyTop    = bodyBottom - bodyH;
+  const neckBottom = bodyTop;
+  const neckTop    = neckBottom - neckH;
+  const headBottom = neckTop    + Math.round(hs);
+  const headTop    = headBottom - headH;
+  const hairTop    = headTop    - hairH;
+
+  // Immortal / celestial aura (approximated with concentric circles)
+  if (isImmortal) {
+    for (let i=5;i>=0;i--) { g.fillStyle(0xffd050,0.04); g.fillCircle(Math.round(cx),neckTop,Math.round(22*hs)-i*3); }
+    g.lineStyle(Math.max(1,Math.round(1.5*hs)),0xffd050,0.9);
+    g.strokeCircle(Math.round(cx),hairTop-Math.round(4*hs),Math.round(6*hs));
+  }
+  if (race==='celestial') { g.fillStyle(0xf0dc64,0.11); g.fillCircle(Math.round(cx),headTop,Math.round(14*hs)); }
+
+  // Hair (behind head)
+  if (rc.feat.includes('hair_long')) {
+    g.fillStyle(_OL,1);
+    g.fillRect(Math.round(cx-headW/2)-1,hairTop-1,headW+2,hairH+3);
+    g.fillRect(Math.round(cx-headW/2)-2,headTop-1,3,headH+2);
+    g.fillRect(Math.round(cx+headW/2)-1,headTop-1,3,headH+2);
+    g.fillStyle(_hexInt(hair),1);
+    g.fillRect(Math.round(cx-headW/2),hairTop,headW,hairH+2);
+    g.fillRect(Math.round(cx-headW/2)-1,headTop,2,headH);
+    g.fillRect(Math.round(cx+headW/2)-1,headTop,2,headH);
+  } else if (rc.feat.includes('hair_flowing')) {
+    g.fillStyle(_OL,1);
+    g.fillRect(Math.round(cx-headW/2)-1,hairTop-1,headW+2,hairH+2);
+    g.fillRect(Math.round(cx-headW/2)-2,headTop-1,4,Math.round(headH*0.6)+1);
+    g.fillRect(Math.round(cx+headW/2)-2,headTop-1,4,Math.round(headH*0.6)+1);
+    g.fillStyle(_hexInt(hair),1);
+    g.fillRect(Math.round(cx-headW/2),hairTop,headW,hairH+1);
+    g.fillStyle(_hexInt(hair),0.8);
+    g.fillRect(Math.round(cx-headW/2)-1,headTop,2,Math.round(headH*0.6));
+    g.fillRect(Math.round(cx+headW/2)-1,headTop,2,Math.round(headH*0.6));
+  } else if (rc.feat.includes('hair_curly')) {
+    g.fillStyle(_OL,1);
+    g.fillRect(Math.round(cx-headW/2)+1,hairTop-1,headW-2,hairH+2);
+    g.fillRect(Math.round(cx-ws)-1,hairTop-2,Math.round(3*ws)+2,3);
+    g.fillStyle(_hexInt(hair),1);
+    g.fillRect(Math.round(cx-headW/2)+1,hairTop,headW-2,hairH+1);
+    g.fillRect(Math.round(cx-ws),hairTop-1,Math.round(3*ws),2);
+  } else {
+    g.fillStyle(_OL,1); g.fillRect(Math.round(cx-headW/2)-1,hairTop-1,headW+2,hairH+2);
+    g.fillStyle(_hexInt(hair),1); g.fillRect(Math.round(cx-headW/2),hairTop,headW,hairH+1);
+  }
+  g.fillStyle(_tintInt(hair,0.25),1);
+  g.fillRect(Math.round(cx-headW/2)+1,hairTop,Math.ceil(headW*0.4),1);
+
+  // Head
+  _pSRect(g,cx-Math.floor(headW/2),headTop,headW,headH,skin);
+
+  // Eyes
+  const eyeY=headTop+Math.round(3*hs);
+  if (race==='undead') {
+    _pSRect(g,cx-Math.round(2.5*ws),eyeY-Math.round(hs),Math.round(2*ws),Math.round(2*hs),'#1a0808',0,0);
+    _pSRect(g,cx+Math.round(0.5*ws),eyeY-Math.round(hs),Math.round(2*ws),Math.round(2*hs),'#1a0808',0,0);
+    g.fillStyle(_hexInt(eye),1);
+    g.fillRect(cx-Math.round(2*ws),eyeY,Math.max(1,Math.round(ws)),Math.max(1,Math.round(hs)));
+    g.fillRect(cx+Math.round(ws),eyeY,Math.max(1,Math.round(ws)),Math.max(1,Math.round(hs)));
+  } else if (rc.feat.includes('big_eyes')) {
+    _pSRect(g,cx-Math.round(3*ws),eyeY,Math.round(2.5*ws),Math.round(2.5*hs),'#e8e8e8');
+    _pSRect(g,cx+Math.round(ws),eyeY,Math.round(2.5*ws),Math.round(2.5*hs),'#e8e8e8');
+    g.fillStyle(_hexInt(eye),1);
+    g.fillRect(cx-Math.round(2*ws),eyeY+Math.round(0.5*hs),Math.round(1.5*ws),Math.round(1.5*hs));
+    g.fillRect(cx+Math.round(1.5*ws),eyeY+Math.round(0.5*hs),Math.round(1.5*ws),Math.round(1.5*hs));
+  } else {
+    g.fillStyle(_OL,1);
+    g.fillRect(cx-Math.round(2.5*ws)-1,eyeY-1,Math.round(ws)+2,Math.round(hs)+2);
+    g.fillRect(cx+Math.round(ws)-1,eyeY-1,Math.round(ws)+2,Math.round(hs)+2);
+    g.fillStyle(_hexInt(eye),1);
+    g.fillRect(cx-Math.round(2.5*ws),eyeY,Math.round(ws),Math.round(hs));
+    g.fillRect(cx+Math.round(ws),eyeY,Math.round(ws),Math.round(hs));
+    g.fillStyle(0xffffff,0.55);
+    g.fillRect(cx-Math.round(2.5*ws),eyeY,1,1); g.fillRect(cx+Math.round(ws),eyeY,1,1);
+  }
+
+  // Race features
+  if (race==='elf') {
+    const ex1=cx-Math.floor(headW/2), ex2=cx+Math.ceil(headW/2);
+    const ey1=headTop+Math.round(2*hs), ey2=headTop+Math.round(5*hs);
+    const tipY=headTop-Math.round(3*hs);
+    g.fillStyle(_OL,1);
+    g.fillTriangle(ex1-1,ey1,ex1-Math.round(5*ws)-1,tipY,ex1-1,ey2);
+    g.fillTriangle(ex2+1,ey1,ex2+Math.round(5*ws)+1,tipY,ex2+1,ey2);
+    g.fillStyle(_hexInt(skin),1);
+    g.fillTriangle(ex1,ey1+Math.round(0.5*hs),ex1-Math.round(4*ws),tipY,ex1,ey2);
+    g.fillTriangle(ex2,ey1+Math.round(0.5*hs),ex2+Math.round(4*ws),tipY,ex2,ey2);
+    g.fillStyle(_tintInt(skin,-0.2),1);
+    g.fillTriangle(ex1-Math.round(4*ws),tipY,ex1,ey1+Math.round(0.5*hs),ex1-Math.round(2*ws),ey1+Math.round(0.5*hs));
+    g.fillTriangle(ex2+Math.round(4*ws),tipY,ex2,ey1+Math.round(0.5*hs),ex2+Math.round(2*ws),ey1+Math.round(0.5*hs));
+  }
+  if (race==='dwarf') {
+    const bW=Math.round(bodyW*rc.ws), bH=Math.round(5*hs);
+    _pSRect(g,cx-Math.floor(bW/2),neckBottom,bW,bH,_tintStr(hair,-0.1));
+    g.fillStyle(_tintInt(hair,0.2),1);
+    g.fillRect(cx-Math.floor(bW/2)+1,neckBottom+1,Math.round(bW*0.35),Math.round(bH*0.4));
+    g.fillStyle(_tintInt(hair,-0.25),1);
+    for(let i=0;i<3;i++) g.fillRect(cx-Math.floor(bW/2)+Math.round(i*3*ws),neckBottom+Math.round(3*hs),Math.round(ws)+1,Math.round(2*hs));
+  }
+  if (race==='orc') {
+    _pSRect(g,cx-Math.round(2*ws),neckBottom-Math.round(hs),Math.round(1.5*ws),Math.round(4*hs),'#d8c888');
+    _pSRect(g,cx+Math.round(ws),neckBottom-Math.round(hs),Math.round(1.5*ws),Math.round(4*hs),'#d8c888');
+    g.fillStyle(_tintInt(skin,-0.3),1); g.fillRect(cx-Math.floor(headW/2),headTop,headW,Math.round(2*hs));
+  }
+  if (race==='troll') {
+    _pSRect(g,cx-Math.floor(Math.round(6*ws)/2),headBottom-Math.round(hs),Math.round(6*ws),Math.round(4*hs),_tintStr(skin,-0.1));
+    g.fillStyle(_tintInt(skin,-0.3),1); g.fillRect(cx-Math.floor(headW/2),headTop,headW,Math.round(2.5*hs));
+    g.fillStyle(_tintInt(skin,-0.15),1);
+    g.fillRect(cx-Math.round(ws),headTop+Math.round(4*hs),Math.round(ws),Math.round(hs));
+    g.fillRect(cx+Math.round(2*ws),headTop+Math.round(3*hs),Math.round(ws),Math.round(hs));
+  }
+  if (race==='undead') {
+    g.fillStyle(_tintInt(skin,-0.25),1);
+    g.fillRect(cx-Math.floor(headW/2),headTop+Math.round(4*hs),Math.round(2*ws),Math.round(2*hs));
+    g.fillRect(cx+Math.ceil(headW/2)-Math.round(2*ws),headTop+Math.round(4*hs),Math.round(2*ws),Math.round(2*hs));
+  }
+  if (race==='halfling') {
+    g.fillStyle(0xdc5a46,0.2);
+    g.fillRect(cx-Math.floor(headW/2)+1,headTop+Math.round(4*hs),Math.round(2*ws),Math.round(2*hs));
+    g.fillRect(cx+Math.ceil(headW/2)-Math.round(3*ws),headTop+Math.round(4*hs),Math.round(2*ws),Math.round(2*hs));
+  }
+  if (race==='merfolk') {
+    g.fillStyle(_OL,1);
+    g.fillRect(cx-Math.floor(headW/2)-Math.round(5*ws)-1,headTop+Math.round(2*hs)-1,Math.round(5*ws)+2,Math.round(3*hs)+2);
+    g.fillRect(cx+Math.ceil(headW/2)-1,headTop+Math.round(2*hs)-1,Math.round(5*ws)+2,Math.round(3*hs)+2);
+    g.fillStyle(_hexInt(_tintStr(skin,-0.05)),1);
+    g.fillRect(cx-Math.floor(headW/2)-Math.round(5*ws),headTop+Math.round(2*hs),Math.round(5*ws),Math.round(3*hs));
+    g.fillRect(cx+Math.ceil(headW/2),headTop+Math.round(2*hs),Math.round(5*ws),Math.round(3*hs));
+    g.fillStyle(0x0078a0,0.3);
+    g.fillRect(cx-Math.floor(headW/2)-Math.round(4*ws),headTop+Math.round(3*hs),Math.round(4*ws),Math.round(hs));
+    g.fillRect(cx+Math.ceil(headW/2),headTop+Math.round(3*hs),Math.round(4*ws),Math.round(hs));
+  }
+
+  // Neck + body
+  _pSRect(g,cx-Math.floor(neckW/2),neckTop,neckW,neckH,skin);
+  _pSRect(g,cx-Math.floor(bodyW/2),bodyTop,bodyW,bodyH,body);
+
+  // Centre-line + belt + buckle
+  g.fillStyle(_tintInt(body,-0.22),1);
+  g.fillRect(cx-1,bodyTop+Math.round(hs),2,bodyH-Math.round(3*hs));
+  const beltH=Math.round(2*hs);
+  _pSRect(g,cx-Math.floor(bodyW/2),bodyBottom-beltH,bodyW,beltH,_tintStr(body,-0.3));
+  _pSRect(g,cx-Math.round(ws),bodyBottom-beltH,Math.round(2*ws),beltH,'#c0a040');
+
+  // Pauldrons (shoulder plates)
+  const pW=Math.round(3*ws), pH=Math.round(4*hs);
+  _pSRect(g,cx-Math.floor(bodyW/2)-pW+Math.round(ws),bodyTop,pW,pH,_tintStr(body,-0.12));
+  _pSRect(g,cx+Math.ceil(bodyW/2)-Math.round(ws),bodyTop,pW,pH,_tintStr(body,-0.12));
+  g.fillStyle(_tintInt(body,0.15),1);
+  g.fillRect(cx-Math.floor(bodyW/2)-pW+Math.round(ws)+1,bodyTop+1,1,1);
+  g.fillRect(cx+Math.ceil(bodyW/2)-Math.round(ws)+1,bodyTop+1,1,1);
+
+  // Legs / merfolk tail
+  if (rc.feat.includes('tail')) {
+    const tW=Math.round(7*ws), tH=Math.round(9*hs);
+    _pSRect(g,cx-Math.floor(tW/2),legTop,tW,Math.round(tH*0.65),'#2a8a9a');
+    _pSRect(g,cx-Math.floor(tW/2)-Math.round(3*ws),legTop+Math.round(tH*0.55),tW+Math.round(6*ws),Math.round(tH*0.38),'#1a7080');
+    g.fillStyle(0x50c8dc,0.22); g.fillRect(cx-Math.floor(tW/2)+1,legTop+Math.round(2*hs),Math.round(3*ws),Math.round(2*hs));
+  } else {
+    const gap=Math.round(ws), pantH=legH-bootH, pantCol=_tintStr(body,-0.18);
+    _pSRect(g,cx-legW-gap,legTop,legW,pantH,pantCol);
+    _pSRect(g,cx+gap,legTop,legW,pantH,pantCol);
+    _pSRect(g,cx-legW-gap-1,legTop+pantH-1,legW+2,bootH+1,'#3a2810');
+    _pSRect(g,cx+gap-1,legTop+pantH-1,legW+2,bootH+1,'#3a2810');
+    g.fillStyle(_tintInt('#3a2810',0.25),1);
+    g.fillRect(cx-legW-gap,legTop+pantH,Math.ceil(legW/2),1);
+    g.fillRect(cx+gap,legTop+pantH,Math.ceil(legW/2),1);
+  }
+
+  // Weapon
+  if (appearance.weaponType) {
+    _drawWeapon(g,cx,bodyTop,bodyBottom,ground,appearance.weaponType,appearance.weaponColor||'#aaaaaa',ws,hs);
+  }
+}
+
+// _drawWeapon — cx = sprite centre, bodyTop/bodyBottom = body rect bounds, ground = sprite bottom
+function _drawWeapon(g, cx, bodyTop, bodyBottom, ground, wtype, col, ws, hs) {
+  const ox = cx + Math.round(9*ws);
+  if (wtype==='sword') {
+    const bladeTop=bodyTop-Math.round(14*hs), bladeH=Math.round(18*hs), guardY=bodyTop+Math.round(2*hs);
+    _pSRect(g,ox,bladeTop,Math.round(2*ws),bladeH,col);
+    g.fillStyle(_tintInt(col,0.45),1); g.fillRect(Math.round(ox),bladeTop,1,Math.round(bladeH*0.7));
+    _pSRect(g,ox-Math.round(3*ws),guardY,Math.round(8*ws),Math.round(2*hs),'#8a8860');
+    _pSRect(g,ox,guardY+Math.round(2*hs),Math.round(2*ws),Math.round(5*hs),'#5a3a1a');
+    _pSRect(g,ox-Math.round(ws),guardY+Math.round(7*hs),Math.round(4*ws),Math.round(2*hs),'#8a8840');
+  } else if (wtype==='dagger') {
+    const bladeTop=bodyTop-Math.round(4*hs);
+    _pSRect(g,ox,bladeTop,Math.round(2*ws),Math.round(10*hs),col);
+    g.fillStyle(_tintInt(col,0.4),1); g.fillRect(Math.round(ox),bladeTop,1,Math.round(6*hs));
+    _pSRect(g,ox-Math.round(2*ws),bladeTop+Math.round(10*hs),Math.round(6*ws),Math.round(2*hs),'#7a7860');
+    _pSRect(g,ox,bladeTop+Math.round(12*hs),Math.round(2*ws),Math.round(4*hs),'#5a3a1a');
+  } else if (wtype==='staff') {
+    const poleTop=bodyTop-Math.round(20*hs);
+    _pSRect(g,ox+Math.round(ws),poleTop,Math.round(2*ws),Math.round(28*hs),'#6a4a1a');
+    g.fillStyle(_tintInt('#6a4a1a',0.3),1);
+    for(let i=0;i<3;i++) g.fillRect(Math.round(ox+ws),poleTop+Math.round((6+i*7)*hs),Math.round(2*ws),Math.max(1,Math.round(hs)));
+    const orbCol=col==='#60b0d0'?'#60d0e8':col==='#8080a8'?'#9090c0':'#b080f0';
+    _pSArc(g,ox+Math.round(2*ws),poleTop,Math.round(5*hs),orbCol);
+  } else if (wtype==='axe') {
+    const handleTop=bodyTop-Math.round(12*hs);
+    _pSRect(g,ox+Math.round(ws),handleTop,Math.round(2*ws),Math.round(17*hs),'#6a4a1a');
+    _pSRect(g,ox-Math.round(3*ws),handleTop,Math.round(9*ws),Math.round(8*hs),col);
+    g.fillStyle(_tintInt(col,0.3),1); g.fillRect(Math.round(ox-3*ws),handleTop,Math.round(9*ws),1);
+    g.fillStyle(_tintInt(col,-0.2),1); g.fillRect(Math.round(ox-3*ws),handleTop+Math.round(4*hs),Math.round(4*ws),Math.round(4*hs));
+    _pSRect(g,ox+Math.round(3*ws),handleTop+Math.round(3*hs),Math.round(3*ws),Math.round(2*hs),_tintStr(col,-0.1));
+  } else if (wtype==='mace') {
+    const handleTop=bodyTop-Math.round(8*hs);
+    _pSRect(g,ox+Math.round(ws),handleTop,Math.round(2*ws),Math.round(15*hs),'#5a3a1a');
+    _pSRect(g,ox-Math.round(3*ws),handleTop-Math.round(6*hs),Math.round(8*ws),Math.round(7*hs),col);
+    for(const [fx,fy] of [[-3,-2],[4,-2],[-3,1],[4,1]]) {
+      g.fillStyle(_OL,1); g.fillRect(Math.round(ox+fx*ws)-1,Math.round(handleTop+fy*hs)-1,Math.round(2*ws)+2,Math.round(2*hs)+2);
+      g.fillStyle(_tintInt(col,-0.1),1); g.fillRect(Math.round(ox+fx*ws),Math.round(handleTop+fy*hs),Math.round(2*ws),Math.round(2*hs));
+    }
+  } else if (wtype==='bow') {
+    const bowTop=bodyTop-Math.round(14*hs), limb='#6a4a1a';
+    _pSRect(g,ox,bowTop,Math.round(2*ws),Math.round(5*hs),limb);
+    _pSRect(g,ox+Math.round(2*ws),bowTop+Math.round(4*hs),Math.round(2*ws),Math.round(16*hs),limb);
+    _pSRect(g,ox,bowTop+Math.round(19*hs),Math.round(2*ws),Math.round(5*hs),limb);
+    g.lineStyle(Math.max(1,Math.round(ws)),0xdcc88c,0.8);
+    g.lineBetween(Math.round(ox+ws),bowTop+1,Math.round(ox+ws),bowTop+Math.round(24*hs));
+    _pSRect(g,ox+Math.round(3*ws),bowTop+Math.round(8*hs),Math.round(ws),Math.round(9*hs),'#a07030');
+    _pSRect(g,ox+Math.round(2*ws),bowTop+Math.round(7*hs),Math.round(3*ws),Math.round(2*hs),'#c03030');
+  }
+}
+
+// Simpler outlined sprite for other players (ground = bottom of sprite)
+function _drawSimplePlayerSprite(g, cx, ground, skinStr, race) {
+  const rc=_RACE_CONFIG[race||'human']||_RACE_CONFIG.human;
+  const hs=rc.hs, ws=rc.ws;
+  const headW=Math.round(6*ws), headH=Math.round(6*hs);
+  const bodyW=Math.round(8*ws), bodyH=Math.round(7*hs);
+  const legH=Math.round(5*hs);
+  const headTop=Math.round(ground)-legH-bodyH-Math.round(2*hs)-headH;
+  const bodyTop=headTop+headH+Math.round(2*hs);
+  const legTop=bodyTop+bodyH;
+  _pSRect(g,cx-Math.floor(headW/2),headTop,headW,headH,skinStr||'#d4a574');
+  _pSRect(g,cx-Math.floor(bodyW/2),bodyTop,bodyW,bodyH,'#6af7c8');
+  _pSRect(g,cx-Math.round(3.5*ws),legTop,Math.round(3*ws),legH,'#5acea8');
+  _pSRect(g,cx+Math.round(0.5*ws),legTop,Math.round(3*ws),legH,'#5acea8');
+}
+
+function computeAppearance(race, cls, equipmentMap) {
+  const result = {
+    race: race || 'human',
+    bodyColor: _CLASS_BODY[cls] || _CLASS_BODY.adventurer,
+    weaponType: null, weaponColor: '#aaaaaa', armorColor: null,
+  };
+  const mh = equipmentMap?.mainhand;
+  if (mh?.attributes?.visual?.weapon_type) { result.weaponType=mh.attributes.visual.weapon_type; result.weaponColor=mh.attributes.visual.color||'#aaaaaa'; }
+  const ch = equipmentMap?.chest;
+  if (ch?.attributes?.visual?.color) result.armorColor = ch.attributes.visual.color;
+  return result;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+function initPhaser(mountEl) {
+  const W = mountEl.clientWidth || 640;
+  const H = 240;
+
+  class WorldScene extends Phaser.Scene {
+    constructor() { super({ key:'World' }); }
+
+    create() {
+      gameScene = this;
+      this.terrain = 'void';
+      this.playerSprites = new Map(); // name → sprite
+      this.selfGfx = null;
+      this.selfName = '';
+
+      // Background (terrain-aware)
+      this.bgGfx = this.add.graphics();
+      _drawBackground(this.bgGfx, W, H, 'void');
+
+      // Player sprites group
+      this.playerGroup = this.add.group();
+
+      // Self sprite — Pixel-Knights chibi style (ground = H/2+20, scale=2)
+      this.selfGfx    = this.add.graphics();
+      this.selfLabel  = this.add.text(W/2, H/2-44, '', { fontSize:'9px', fill:'#d4d8f0', fontFamily:'Share Tech Mono' }).setOrigin(0.5);
+      this.selfAppearance = { race:'human', bodyColor:'#7c6af7', weaponType:null, weaponColor:'#aaaaaa', armorColor:null };
+      _drawCharSprite(this.selfGfx, W/2, H/2+20, this.selfAppearance, 2.0);
+
+      // Light overlay for dark rooms
+      this.lightOverlay = this.add.rectangle(W/2, H/2, W, H, 0x000000, 0);
+
+      // Minimap in bottom-right corner
+      this.minimapGroup = this.add.group();
+    }
+
+    updateRoom(room) {
+      this.terrain = room.terrain || 'void';
+      this.bgGfx.clear();
+      _drawBackground(this.bgGfx, W, H, this.terrain);
+
+      // Light overlay
+      const lightAlpha = { bright:0, normal:0, dim:0.25, dark:0.5, pitch_black:0.85 }[room.light_level ?? 'normal'] ?? 0;
+      this.lightOverlay.setAlpha(lightAlpha);
+
+      // Minimap
+      this.updateMinimap(room.exits || []);
+
+      // Z-order
+      this.children.bringToTop(this.lightOverlay);
+      this.children.bringToTop(this.playerGroup);
+      this.children.bringToTop(this.selfGfx);
+      this.children.bringToTop(this.selfLabel);
+      this.children.bringToTop(this.minimapGroup);
+    }
+
+    updateMinimap(exits) {
+      this.minimapGroup.clear(true, true);
+      const mg = this.add.graphics();
+      this.minimapGroup.add(mg);
+
+      const mx = W - 52, my = H - 52;  // minimap center
+      const cr = 6;  // center room radius
+
+      // Background
+      mg.fillStyle(0x000000, 0.55);
+      mg.fillRect(mx - 40, my - 40, 80, 80);
+      mg.lineStyle(1, 0x2a3050, 1);
+      mg.strokeRect(mx - 40, my - 40, 80, 80);
+
+      // Direction vectors
+      const DIR_VEC = {
+        n:[0,-1], s:[0,1], e:[1,0], w:[-1,0],
+        ne:[1,-1], nw:[-1,-1], se:[1,1], sw:[-1,1],
+        u:[0,-1], d:[0,1], in:[0,0], out:[0,0],
+      };
+
+      // Draw exits
+      mg.lineStyle(1, 0x4a5070, 1);
+      for (const exit of exits) {
+        const v = DIR_VEC[exit.dir] || [0,0];
+        if (!v[0] && !v[1]) continue;
+        const len = 24;
+        const ex = mx + v[0] * len * 0.8;
+        const ey = my + v[1] * len * 0.8;
+        mg.lineStyle(1, exit.locked ? 0x5a3030 : 0x3a5070, 1);
+        mg.lineBetween(mx, my, ex, ey);
+        // Exit dot
+        mg.fillStyle(exit.locked ? 0x703030 : 0x506090, 1);
+        mg.fillRect(ex - 3, ey - 3, 6, 6);
+        // Direction label
+        const lbl = this.add.text(ex, ey - 8, exit.dir.toUpperCase(), { fontSize:'6px', fill:'#6b7099', fontFamily:'Share Tech Mono' }).setOrigin(0.5);
+        this.minimapGroup.add(lbl);
+      }
+
+      // Center room
+      mg.fillStyle(0x7c6af7, 1);
+      mg.fillRect(mx - cr, my - cr, cr*2, cr*2);
+    }
+
+    setPlayerList(playerArr, selfName) {
+      this.selfName = selfName;
+      // Clear existing other-player sprites
+      this.playerGroup.clear(true, true);
+      const cx = W/2, cy = H/2;
+      const radius = 70;
+      playerArr.filter(p => p.name !== selfName).forEach((p, i, arr) => {
+        const angle = (i / Math.max(arr.length, 1)) * Math.PI * 2;
+        const x = cx + Math.cos(angle) * radius;
+        const y = cy + Math.sin(angle) * radius * 0.6;
+        const g = this.add.graphics();
+        const skinStr = _RACE_SKIN[p.race] || _RACE_SKIN.human;
+        _drawSimplePlayerSprite(g, x, y + 10, skinStr, p.race);
+        const label = this.add.text(x, y-22, p.name.slice(0,8), { fontSize:'8px', fill:'#6af7c8', fontFamily:'Share Tech Mono' }).setOrigin(0.5);
+        this.playerGroup.addMultiple([g, label]);
+      });
+      // Self label
+      this.selfLabel.setText(selfName.slice(0,8));
+    }
+
+    updateSelfAppearance(appearance) {
+      this.selfAppearance = { ...this.selfAppearance, ...appearance };
+      _drawCharSprite(this.selfGfx, W/2, H/2+20, this.selfAppearance, 2.0);
+      this.children.bringToTop(this.selfGfx);
+      this.children.bringToTop(this.selfLabel);
+    }
+  }
+
+  phaserGame = new Phaser.Game({
+    type: Phaser.AUTO,
+    width: W,
+    height: H,
+    backgroundColor: '#0d0f1a',
+    parent: mountEl,
+    scene: [WorldScene],
+    render: { pixelArt: true, antialias: false },
+  });
+}
+
+// ═══════════════════════════════════════════════════
+// Socket connection
+// ═══════════════════════════════════════════════════
+function playAs(characterId) {
+  showScreen('gameScreen');
+
+  // Init Phaser after screen is visible (needs layout)
+  requestAnimationFrame(() => {
+    const mount = document.getElementById('phaserMount');
+    if (!phaserGame) initPhaser(mount);
+    connectSocket(characterId);
+  });
+}
+
+function connectSocket(characterId) {
+  if (socket) socket.disconnect();
+  socket = io({ auth:{ token } });
+
+  socket.on('connect', () => {
+    log('Connected.', 'sys');
+    socket.emit('play', { character_id: characterId });
+  });
+  socket.on('connect_error', e => log(`Connection error: ${e.message}`, 'err'));
+  socket.on('gmcp', ({ module, data }) => handleGMCP(module, data));
+  socket.on('disconnect', reason => log(`Disconnected: ${reason}`, 'err'));
+}
+
+// ═══════════════════════════════════════════════════
+// GMCP dispatch
+// ═══════════════════════════════════════════════════
+let selfName = '';
+
+function handleGMCP(module, data) {
+  switch (module) {
+    case 'Room.Info':
+      currentRoom = data;
+      players.clear();
+      groundItems.clear();
+      npcs.clear();
+      (data.players||[]).forEach(p => players.set(p.name, p));
+      (data.items||[]).forEach(i => groundItems.set(i.id, i));
+      (data.npcs||[]).forEach(n => npcs.set(n.id, n));
+      renderRoom(data);
+      renderPlayerList();
+      renderGroundList();
+      renderNpcList();
+      gameScene?.updateRoom(data);
+      gameScene?.setPlayerList([...players.values()], selfName);
+      if (isAdmin) adminLook();
+      break;
+
+    case 'Room.Players':
+      if (data.entered) {
+        players.set(data.entered.name, data.entered);
+        renderPlayerList();
+        log(`${data.entered.name} arrives.`, 'enter');
+      }
+      if (data.left) {
+        players.delete(data.left.name);
+        renderPlayerList();
+        log(`${data.left.name} has left.`, 'leave');
+      }
+      gameScene?.setPlayerList([...players.values()], selfName);
+      break;
+
+    case 'Room.Items':
+      (data.added||[]).forEach(i => groundItems.set(i.id, i));
+      (data.removed||[]).forEach(id => groundItems.delete(id));
+      renderGroundList();
+      break;
+
+    case 'Room.Npcs':
+      (data.added||[]).forEach(n => npcs.set(n.id, n));
+      (data.removed||[]).forEach(id => npcs.delete(id));
+      (data.updated||[]).forEach(n => { if (npcs.has(n.id)) npcs.set(n.id, { ...npcs.get(n.id), ...n }); });
+      (data.respawned||[]).forEach(n => { npcs.set(n.id, n); log(`${n.name} has returned.`, 'sys'); });
+      renderNpcList();
+      break;
+
+    case 'Char.Status':
+      selfName = data.name;
+      charRace  = data.race  || charRace;
+      charClass = data.class || charClass;
+      document.getElementById('charName').textContent = `${data.name} [${data.race} ${data.class} Lv.${data.level}]`;
+      if (data.gold !== undefined) document.getElementById('goldVal').textContent = data.gold;
+      isAdmin = ['admin','developer'].includes(data.role);
+      document.getElementById('roleTag').style.display    = isAdmin ? '' : 'none';
+      document.getElementById('adminToggle').style.display = isAdmin ? '' : 'none';
+      if (data.stats) {
+        charStats = data.stats;
+        const s = data.stats;
+        const el = document.getElementById('statsDisplay');
+        el.style.display = '';
+        el.title = `STR ${s.str}  DEX ${s.dex}  CON ${s.con}  INT ${s.int}  WIS ${s.wis}`;
+        el.textContent = `STR${s.str} DEX${s.dex} CON${s.con} INT${s.int} WIS${s.wis}`;
+      }
+      charLevel = data.level;
+      if (data.lore?.race) log(`[Race] ${data.lore.race}`, 'sys');
+      if (data.lore?.class) log(`[Class] ${data.lore.class}`, 'sys');
+      // Request equipment and skills on play
+      setTimeout(() => { socket?.emit('equipment'); socket?.emit('skills'); }, 500);
+      // Update sprite with race/class colours (equipment not yet loaded)
+      if (gameScene) gameScene.updateSelfAppearance(computeAppearance(charRace, charClass, equipment));
+      break;
+
+    case 'Char.Vitals':
+      setBar('hp', data.hp, data.maxhp);
+      setBar('mp', data.mp, data.maxmp);
+      setBar('ep', data.ep, data.maxep);
+      break;
+
+    case 'Char.Items.Inv':
+      inventory.clear();
+      (data.items||[]).forEach(i => inventory.set(i.id, i));
+      renderInvList();
+      break;
+
+    case 'Move.Success':
+      log(`You move ${data.direction}.`, 'move');
+      break;
+    case 'Move.Fail':
+      log(`Can't go ${data.direction}: ${data.reason}`, 'err');
+      break;
+
+    case 'Combat.Hit':
+      if (data.npcHp !== undefined) {
+        log(`You strike ${data.target} for ${data.damage} damage. (${data.npcHp}/${data.npcMaxHp} HP)`, 'combat-hit');
+        _updateNpcHpBar(data.target, data.npcHp, data.npcMaxHp);
+      } else {
+        log(`${data.attacker} strikes ${data.target} for ${data.damage} damage.`, 'combat-hit');
+        if (data.target === selfName) {
+          log(`  You take ${data.damage} damage!`, 'combat-hit');
+        }
+      }
+      break;
+    case 'Combat.Miss':
+      log(`${data.attacker === selfName ? 'You miss' : `${data.attacker} misses`} ${data.target}.`, 'combat-miss');
+      break;
+    case 'Combat.Kill':
+      if (data.killer === selfName) {
+        log(`You slay ${data.npc}! (+${data.xp} XP${data.goldGained>0?`, +${data.goldGained} gold`:''})`,'combat-kill');
+      } else {
+        log(`${data.killer} slays ${data.npc}.`, 'combat-kill');
+      }
+      npcs.delete(data.npcId);
+      renderNpcList();
+      break;
+    case 'Combat.Death':
+      if (data.name === selfName) {
+        log('YOU HAVE BEEN SLAIN. Respawning...', 'combat-death');
+      } else {
+        log(`${data.name} has been slain.`, 'combat-hit');
+      }
+      break;
+    case 'Combat.LevelUp':
+      charLevel = data.level;
+      log(`*** LEVEL UP! You are now level ${data.level}! ***`, 'levelup');
+      break;
+    case 'Char.XP':
+      charLevel = data.level;
+      log(`XP: ${data.xp}/${data.xpNeeded} (Lv.${data.level})${data.goldGained>0?` +${data.goldGained}g`:''}`, 'xp');
+      if (data.goldGained > 0) {
+        const gv = document.getElementById('goldVal');
+        if (gv) gv.textContent = (parseInt(gv.textContent)||0) + data.goldGained;
+      }
+      break;
+    case 'Char.Equipment':
+      equipment = {};
+      (data.slots||[]).forEach(s => { equipment[s.slot] = s; });
+      renderEquipment();
+      if (gameScene) gameScene.updateSelfAppearance(computeAppearance(charRace, charClass, equipment));
+      break;
+    case 'Char.Skills':
+      renderSkillList(data.class, data.skills);
+      break;
+
+    case 'Comm.Say':
+      log(`${data.sender} says: "${data.message}"`, 'say');
+      break;
+    case 'Comm.Tell':
+      if (data.echo) log(`You tell ${data.to}: "${data.message}"`, 'tell');
+      else           log(`${data.sender} tells you: "${data.message}"`, 'tell');
+      break;
+    case 'Comm.Yell':
+      log(`${data.sender} yells: "${data.message}"`, 'yell');
+      break;
+    case 'Comm.Emote':
+      log(`${data.sender} ${data.message}`, 'emote');
+      break;
+
+    case 'Admin.Npc.Data':
+      _showNpcEditModal(data);
+      break;
+
+    case 'Admin.RoomInfo':
+      handleAdminRoomInfo(data);
+      break;
+    case 'Admin.AIDraft':
+      handleAIDraft(data);
+      break;
+    case 'Admin.Agent':
+      handleAgentResult(data);
+      break;
+
+    case 'Server.Message':
+      if (data.text?.startsWith('[agent:')) {
+        _agentLog(data.text.replace(/^\[agent:[^\]]+\] /, '→ '));
+        return;
+      }
+      if (data.text?.startsWith('World Agent')) {
+        _agentLog(data.text);
+        return;
+      }
+      if (data.type === 'examine') {
+        const attrs = JSON.stringify(data.item?.attributes || {}, null, 2);
+        log(`[${(data.item?.type||'').toUpperCase()}] ${data.item?.name}\n${data.item?.description||''}`, 'sys');
+        const el = document.createElement('p');
+        el.className = 'log-line examine';
+        el.innerHTML = `<pre>${attrs}</pre>`;
+        document.getElementById('logArea').appendChild(el);
+        document.getElementById('logArea').scrollTop = 9e9;
+      } else if (data.type === 'examine_npc') {
+        const n = data.npc;
+        log(`${n.name}${n.title?`, ${n.title}`:''} [${n.race}]`, 'sys');
+        log(n.description || 'An unremarkable figure.', 'sys');
+      } else {
+        log(data.text, 'sys');
+      }
+      break;
+    case 'Server.Error':
+      log(`! ${data.text}`, 'err');
+      break;
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// Rendering helpers
+// ═══════════════════════════════════════════════════
+function renderRoom(room) {
+  document.getElementById('roomName').textContent = room.name;
+  document.getElementById('roomDesc').textContent = room.short_desc || '';
+  const img = document.getElementById('roomImage');
+  if (room.image_url) { img.src = room.image_url; img.style.display = ''; }
+  else { img.style.display = 'none'; img.src = ''; }
+  const btns = document.getElementById('exitBtns');
+  btns.innerHTML = '';
+  if (room.exits?.length) {
+    room.exits.forEach(x => {
+      const b = document.createElement('button');
+      b.className = 'exit-btn' + (x.door?' door':'') + (x.locked?' locked':'');
+      b.textContent = x.dir.toUpperCase();
+      b.title = x.name + (x.door?' (door)':'') + (x.locked?' [locked]':'');
+      if (!x.locked) b.onclick = () => move(x.dir);
+      btns.appendChild(b);
+    });
+  } else {
+    btns.innerHTML = '<span style="color:var(--dim);font-size:11px">none</span>';
+  }
+}
+
+function renderPlayerList() {
+  const list = document.getElementById('playerList');
+  if (!players.size) { list.innerHTML='<li class="empty-msg">none</li>'; return; }
+  list.innerHTML = [...players.values()].map(p => `
+    <li><div class="pname">${p.name}</div><div class="pinfo">Lv.${p.level||'?'} ${p.race||''}</div></li>`).join('');
+}
+
+function renderGroundList() {
+  const list = document.getElementById('itemList');
+  if (!groundItems.size) { list.innerHTML='<li class="empty-msg">none</li>'; return; }
+  list.innerHTML = [...groundItems.values()].map(i => `
+    <li style="cursor:pointer" onclick="clickGroundItem('${i.id}','${escapeHtml(i.name)}')">
+      <div class="iname">${i.name}</div>
+      <div class="iinfo">${i.type}${i.stackCount>1?` ×${i.stackCount}`:''}${i.persistent?' [fixed]':''}</div>
+    </li>`).join('');
+}
+
+function renderNpcList() {
+  const list = document.getElementById('npcList');
+  if (!npcs.size) { list.innerHTML='<li class="empty-msg">none</li>'; return; }
+  list.innerHTML = [...npcs.values()].map(n => {
+    const hostile = n.is_combatant ? ' npc-hostile' : '';
+    const hpBar = n.is_combatant
+      ? `<div class="npc-hp-bar" id="npc-hp-${n.id}"><div class="npc-hp-fill" style="width:100%"></div></div>` : '';
+    const portrait = n.image_url
+      ? `<img src="${n.image_url}" style="width:44px;height:44px;object-fit:cover;image-rendering:pixelated;border-radius:3px;border:1px solid var(--border2);flex-shrink:0" />`
+      : `<div style="width:44px;height:44px;background:var(--bg);border:1px solid var(--border);border-radius:3px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px">${n.is_combatant?'⚔':'👤'}</div>`;
+    const btns = n.is_combatant
+      ? `<button onclick="socket?.emit('attack',{npc_id:'${n.id}'})" style="font-size:10px;background:#3a1515;border:1px solid var(--hp);color:var(--hp);padding:1px 5px;cursor:pointer;border-radius:2px">attack</button>`
+      : `<button onclick="socket?.emit('npc:talk',{npc_id:'${n.id}',message:'hello'})" style="font-size:10px;background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:1px 5px;cursor:pointer;border-radius:2px">talk</button>`;
+    return `<li style="display:flex;gap:.4rem;align-items:flex-start">
+      ${portrait}
+      <div style="flex:1;min-width:0">
+        <div class="pname${hostile}" style="cursor:pointer" onclick="clickNpc('${n.id}','${escapeHtml(n.name)}')">
+          ${escapeHtml(n.name)}${n.title?` <span style="color:var(--muted);font-size:10px">${escapeHtml(n.title)}</span>`:''}
+        </div>
+        <div class="pinfo">${n.race||''}${n.role?` · ${n.role}`:''}</div>
+        ${hpBar}
+        <div style="display:flex;gap:.3rem;margin-top:.2rem">
+          ${btns}
+          <button onclick="socket?.emit('npc:examine',{npc_id:'${n.id}'})" style="font-size:10px;background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:1px 5px;cursor:pointer;border-radius:2px">look</button>
+          ${isAdmin?`<button onclick="socket?.emit('admin:npc:genimage',{npc_id:'${n.id}'})" style="font-size:10px;background:var(--surface2);border:1px solid var(--border2);color:var(--accent2);padding:1px 5px;cursor:pointer;border-radius:2px" title="Generate portrait">🎨</button>`:''}
+          ${isAdmin?`<button onclick="openNpcEditor('${n.id}')" style="font-size:10px;background:var(--surface2);border:1px solid var(--accent);color:var(--accent);padding:1px 5px;cursor:pointer;border-radius:2px" title="Edit NPC">✏</button>`:''}
+        </div>
+      </div>
+    </li>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════
+// Admin NPC editor
+// ═══════════════════════════════════════════════════
+
+function openNpcEditor(npcId) {
+  socket?.emit('admin:npc:get', { npc_id: npcId });
+}
+
+let _dlgIdx = 0;
+
+function _dlgEntryHtml(entryNum, keywords, response) {
+  const id = `dlg-${_dlgIdx++}`;
+  const inp = 'display:block;width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border2);color:var(--text);padding:.2rem .4rem;border-radius:3px;font-size:11px;font-family:Share Tech Mono,monospace;margin-top:.1rem';
+  return `<div id="${id}" style="background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:.4rem;margin-bottom:.3rem">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.2rem">
+      <span style="color:var(--muted);font-size:10px">Entry ${entryNum + 1}</span>
+      <button onclick="document.getElementById('${id}').remove()" style="background:none;border:none;color:var(--hp);font-size:10px;cursor:pointer">✕ remove</button>
+    </div>
+    <label style="color:var(--muted);font-size:10px;display:block">KEYWORDS <span style="color:var(--dim)">(comma-separated)</span>
+      <input class="dlg-kw" value="${escapeHtml(keywords)}" placeholder="hello, hi, greet" style="${inp}">
+    </label>
+    <label style="color:var(--muted);font-size:10px;display:block;margin-top:.25rem">RESPONSE
+      <textarea class="dlg-resp" rows="2" style="${inp};resize:vertical">${escapeHtml(response)}</textarea>
+    </label>
+  </div>`;
+}
+
+function _showNpcEditModal(npc) {
+  document.getElementById('npcEditModal')?.remove();
+
+  const inp = 'display:block;width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border2);color:var(--text);padding:.25rem .4rem;border-radius:3px;font-size:11px;font-family:Share Tech Mono,monospace;margin-top:.15rem';
+  const isCombatant = !!npc.is_combatant;
+  const dlgHtml = (npc.dialogue || []).map((d, i) =>
+    _dlgEntryHtml(i, (d.keywords || []).join(', '), d.response || '')).join('');
+  const combatDisplay = isCombatant ? 'grid' : 'none';
+
+  const modal = document.createElement('div');
+  modal.id = 'npcEditModal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.78);z-index:9999;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:1.5rem 1rem';
+
+  modal.innerHTML = `
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;width:100%;max-width:540px;font-size:12px;color:var(--text);margin-bottom:2rem">
+    <div style="background:var(--surface2);padding:.55rem 1rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;border-radius:6px 6px 0 0">
+      <span style="color:var(--accent);font-weight:bold;font-size:13px">✏ Edit NPC</span>
+      <button onclick="document.getElementById('npcEditModal').remove()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;line-height:1">✕</button>
+    </div>
+    <div style="padding:.8rem 1rem;display:flex;flex-direction:column;gap:.6rem">
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem">
+        <label style="color:var(--muted);font-size:10px">NAME
+          <input id="ne-name" value="${escapeHtml(npc.name)}" style="${inp}">
+        </label>
+        <label style="color:var(--muted);font-size:10px">TITLE <span style="color:var(--dim)">(optional)</span>
+          <input id="ne-title" value="${escapeHtml(npc.title||'')}" placeholder="the village elder" style="${inp}">
+        </label>
+      </div>
+
+      <label style="color:var(--muted);font-size:10px">DESCRIPTION
+        <textarea id="ne-desc" rows="3" style="${inp};resize:vertical">${escapeHtml(npc.description||'')}</textarea>
+      </label>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem">
+        <label style="color:var(--muted);font-size:10px">RACE
+          <input id="ne-race" value="${escapeHtml(npc.race||'human')}" style="${inp}">
+        </label>
+        <label style="color:var(--muted);font-size:10px">ROLE
+          <input id="ne-role" value="${escapeHtml(npc.role||'citizen')}" style="${inp}">
+        </label>
+      </div>
+
+      <div style="border-top:1px solid var(--border);padding-top:.6rem">
+        <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer;user-select:none">
+          <input type="checkbox" id="ne-combatant" ${isCombatant?'checked':''} onchange="document.getElementById('ne-combat-stats').style.display=this.checked?'grid':'none'">
+          <span style="color:var(--accent2);font-size:11px">Combatant NPC</span>
+        </label>
+        <div id="ne-combat-stats" style="display:${combatDisplay};grid-template-columns:repeat(3,1fr);gap:.4rem;margin-top:.5rem">
+          <label style="color:var(--muted);font-size:10px">MAX HP
+            <input id="ne-hp"   type="number" value="${npc.max_health??100}"        style="${inp}">
+          </label>
+          <label style="color:var(--muted);font-size:10px">ATTACK
+            <input id="ne-atk"  type="number" value="${npc.attack_power??10}"       style="${inp}">
+          </label>
+          <label style="color:var(--muted);font-size:10px">ARMOR
+            <input id="ne-arm"  type="number" value="${npc.armor??0}"               style="${inp}">
+          </label>
+          <label style="color:var(--muted);font-size:10px">XP REWARD
+            <input id="ne-xp"   type="number" value="${npc.experience_reward??25}"  style="${inp}">
+          </label>
+          <label style="color:var(--muted);font-size:10px">GOLD DROP
+            <input id="ne-gold" type="number" value="${npc.gold_reward??0}"         style="${inp}">
+          </label>
+          <label style="color:var(--muted);font-size:10px">RESPAWN (s)
+            <input id="ne-resp" type="number" value="${npc.respawn_seconds??300}"   style="${inp}">
+          </label>
+        </div>
+      </div>
+
+      <div style="border-top:1px solid var(--border);padding-top:.6rem">
+        <div style="color:var(--accent);font-size:10px;margin-bottom:.4rem">DIALOGUE ENTRIES</div>
+        <div id="ne-dialogue">${dlgHtml || '<span style="color:var(--dim);font-size:10px">No entries yet.</span>'}</div>
+        <button onclick="_addDlgEntry()" style="font-size:10px;background:var(--surface2);border:1px solid var(--border2);color:var(--accent3);padding:.2rem .6rem;cursor:pointer;border-radius:3px;margin-top:.3rem">+ Add Entry</button>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border);padding-top:.6rem;gap:.5rem">
+        <button onclick="_deleteNpcAdmin('${npc.id}')" style="font-size:10px;background:#2a1010;border:1px solid var(--hp);color:var(--hp);padding:.25rem .7rem;cursor:pointer;border-radius:3px">Delete NPC</button>
+        <div style="display:flex;gap:.4rem">
+          <button onclick="document.getElementById('npcEditModal').remove()" style="font-size:11px;background:var(--surface2);border:1px solid var(--border2);color:var(--muted);padding:.25rem .8rem;cursor:pointer;border-radius:3px">Cancel</button>
+          <button onclick="_saveNpcEdit('${npc.id}')" style="font-size:11px;background:#1a2a1a;border:1px solid var(--accent3);color:var(--accent3);padding:.25rem .9rem;cursor:pointer;border-radius:3px;font-weight:bold">Save Changes</button>
+        </div>
+      </div>
+
+    </div>
+  </div>`;
+
+  document.body.appendChild(modal);
+  // Close on backdrop click
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+}
+
+function _addDlgEntry() {
+  const container = document.getElementById('ne-dialogue');
+  const existing = container.querySelectorAll('[id^="dlg-"]').length;
+  // Clear placeholder text if present
+  container.querySelectorAll('span').forEach(s => s.remove());
+  const tmp = document.createElement('div');
+  tmp.innerHTML = _dlgEntryHtml(existing, '', '');
+  container.appendChild(tmp.firstElementChild);
+}
+
+function _saveNpcEdit(npcId) {
+  const name  = document.getElementById('ne-name').value.trim();
+  const title = document.getElementById('ne-title').value.trim() || null;
+  const desc  = document.getElementById('ne-desc').value.trim() || null;
+  const race  = document.getElementById('ne-race').value.trim() || 'human';
+  const role  = document.getElementById('ne-role').value.trim() || 'citizen';
+  const isCombatant = document.getElementById('ne-combatant').checked;
+
+  if (!name) { alert('Name is required.'); return; }
+
+  const fields = { npc_id: npcId, name, title, description: desc, race, role,
+                   is_combatant: isCombatant ? 1 : 0 };
+
+  if (isCombatant) {
+    fields.max_health        = parseInt(document.getElementById('ne-hp').value)   || 100;
+    fields.attack_power      = parseInt(document.getElementById('ne-atk').value)  || 10;
+    fields.armor             = parseInt(document.getElementById('ne-arm').value)  || 0;
+    fields.experience_reward = parseInt(document.getElementById('ne-xp').value)   || 25;
+    fields.gold_reward       = parseInt(document.getElementById('ne-gold').value) || 0;
+    fields.respawn_seconds   = parseInt(document.getElementById('ne-resp').value) || 300;
+  }
+
+  const dialogue = [];
+  document.querySelectorAll('#ne-dialogue [id^="dlg-"]').forEach(entry => {
+    const kw   = entry.querySelector('.dlg-kw')?.value.trim() || '';
+    const resp = entry.querySelector('.dlg-resp')?.value.trim() || '';
+    if (resp) dialogue.push({
+      keywords: kw ? kw.split(',').map(k => k.trim()).filter(Boolean) : [],
+      response: resp,
+    });
+  });
+  fields.dialogue = dialogue;
+
+  socket?.emit('admin:npc:update', fields);
+  document.getElementById('npcEditModal').remove();
+}
+
+function _deleteNpcAdmin(npcId) {
+  if (!confirm('Permanently remove this NPC from the room?')) return;
+  socket?.emit('admin:npc:remove', { npc_id: npcId });
+  document.getElementById('npcEditModal').remove();
+}
+
+function renderSkillList(cls, skills) {
+  const el = document.getElementById('skillList');
+  if (!el) return;
+  if (!skills?.length) { el.innerHTML = '<span style="color:var(--dim)">No skills found.</span>'; return; }
+  el.innerHTML = skills.map(s => `
+    <div style="background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:.3rem .4rem;margin-bottom:.25rem">
+      <div style="display:flex;justify-content:space-between">
+        <span style="color:var(--accent2);font-size:10px">${escapeHtml(s.name)}</span>
+        <span style="font-size:9px;color:var(--dim)">${s.mpCost>0?`${s.mpCost}MP `:''}${s.epCost>0?`${s.epCost}EP `:''}${s.cooldownSec}s cd</span>
+      </div>
+      <div style="font-size:10px;color:var(--muted);margin-top:.15rem">${escapeHtml(s.description)}</div>
+      <button onclick="socket?.emit('use',{skill_id:'${s.id}'})" style="font-size:9px;margin-top:.2rem;background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:1px 6px;cursor:pointer;border-radius:2px">use</button>
+    </div>`).join('');
+}
+
+function _updateNpcHpBar(npcName, currentHp, maxHp) {
+  const npc = [...npcs.values()].find(n => n.name === npcName);
+  if (!npc) return;
+  const bar = document.querySelector(`#npc-hp-${npc.id} .npc-hp-fill`);
+  if (bar) bar.style.width = `${Math.max(0,(currentHp/maxHp)*100)}%`;
+}
+
+function renderEquipment() {
+  const allSlots = ['mainhand','offhand','head','chest','legs','hands','feet','ring','neck'];
+  for (const slot of allSlots) {
+    const el = document.getElementById(`eq-${slot}`);
+    if (!el) continue;
+    if (equipment[slot]) {
+      el.textContent = equipment[slot].name;
+      el.className = 'equip-slot-item';
+      el.style.cursor = 'pointer';
+      el.onclick = () => {
+        if (confirm(`Unequip ${equipment[slot].name}?`)) socket?.emit('unequip', { slot });
+      };
+    } else {
+      el.textContent = '—';
+      el.className = 'equip-slot-item equip-slot-empty';
+      el.style.cursor = 'default';
+      el.onclick = null;
+    }
+  }
+}
+
+function renderInvList() {
+  const list = document.getElementById('invList');
+  if (!inventory.size) { list.innerHTML='<li class="empty-msg">empty</li>'; return; }
+  list.innerHTML = [...inventory.values()].map(i => {
+    const equippable = ['weapon','armor','clothing'].includes(i.type);
+    const hint = i.equippedSlot ? `[${i.equippedSlot}] click=unequip` : (equippable ? 'click=equip' : 'click=drop');
+    return `<li style="cursor:pointer" onclick="clickInvItem('${i.id}','${escapeHtml(i.name)}')" title="${hint}">
+      <div class="iname" style="${i.equippedSlot?'color:var(--accent3)':''}">${escapeHtml(i.name)}${i.equippedSlot?` ✦`:''}</div>
+      <div class="iinfo">${i.type}${i.stackCount>1?` ×${i.stackCount}`:''} <span style="color:var(--dim);font-size:10px">${hint}</span></div>
+    </li>`;
+  }).join('');
+}
+
+function setBar(type, val, max) {
+  const pct = max>0 ? Math.max(0, Math.min(100, (val/max)*100)) : 0;
+  document.getElementById(`${type}Bar`).style.width = `${pct}%`;
+  document.getElementById(`${type}Val`).textContent = `${val}/${max}`;
+}
+
+// ═══════════════════════════════════════════════════
+// Command input bar
+// ═══════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('cmdInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') submitCommand();
+  });
+});
+
+function submitCommand() {
+  const input = document.getElementById('cmdInput');
+  const raw = input.value.trim();
+  input.value = '';
+  if (!raw) return;
+  parseCommand(raw);
+}
+
+function parseCommand(raw) {
+  const [cmd, ...rest] = raw.split(' ');
+  const arg = rest.join(' ').trim();
+
+  switch (cmd.toLowerCase()) {
+    case 'say':
+      if (!arg) { log('Say what?','err'); return; }
+      socket?.emit('say', { message: arg });
+      break;
+    case 'tell': {
+      const [target, ...msg] = rest;
+      if (!target || !msg.length) { log('Usage: tell Name message','err'); return; }
+      socket?.emit('tell', { target, message: msg.join(' ') });
+      break;
+    }
+    case 'yell': case 'shout':
+      if (!arg) { log('Yell what?','err'); return; }
+      socket?.emit('yell', { message: arg });
+      break;
+    case 'emote': case 'em':
+      if (!arg) return;
+      socket?.emit('emote', { message: arg });
+      break;
+    case 'look': case 'l':
+      socket?.emit('look');
+      break;
+    case 'inv': case 'i':
+      socket?.emit('inv');
+      sideTab('inv');
+      break;
+    case 'get':
+      if (!arg) { log('Get what? Use item ID or click item.','err'); return; }
+      socket?.emit('item:get', { item_id: arg });
+      break;
+    case 'drop':
+      if (!arg) { log('Drop what?','err'); return; }
+      socket?.emit('item:drop', { item_id: arg });
+      break;
+    case 'examine': case 'ex':
+      if (!arg) return;
+      socket?.emit('item:examine', { item_id: arg });
+      break;
+    case 'talk': {
+      const [npcId, ...talkMsg] = rest;
+      if (!npcId) { log('Usage: talk <npc_id> [message]','err'); return; }
+      socket?.emit('npc:talk', { npc_id: npcId, message: talkMsg.join(' ') || 'hello' });
+      break;
+    }
+    case 'look_npc': case 'lnpc':
+      if (!arg) { log('Usage: look_npc <npc_id>','err'); return; }
+      socket?.emit('npc:examine', { npc_id: arg });
+      break;
+    case 'attack': case 'kill': case 'k':
+      if (!arg) { log('Attack what? Usage: attack <npc_id>','err'); return; }
+      socket?.emit('attack', { npc_id: arg });
+      break;
+    case 'flee': case 'fl':
+      socket?.emit('flee');
+      break;
+    case 'equip': case 'eq':
+      if (!arg) { sideTab('equip'); return; }
+      socket?.emit('equip', { item_id: arg });
+      sideTab('equip');
+      break;
+    case 'unequip': case 'uneq':
+      if (!arg) { log('Usage: unequip <slot>','err'); return; }
+      socket?.emit('unequip', { slot: arg });
+      break;
+    case 'equipment': case 'worn':
+      socket?.emit('equipment');
+      sideTab('equip');
+      break;
+    case 'use': {
+      const [skillId, ...targetParts] = rest;
+      if (!skillId) { log('Usage: use <skill_id> [target_id]','err'); return; }
+      socket?.emit('use', { skill_id: skillId, target_id: targetParts[0] || null });
+      break;
+    }
+    case 'skills': case 'sk':
+      socket?.emit('skills');
+      sideTab('equip');
+      break;
+    case 'n': case 's': case 'e': case 'w':
+    case 'ne': case 'nw': case 'se': case 'sw':
+    case 'u': case 'd': case 'in': case 'out':
+      move(cmd.toLowerCase());
+      break;
+    case 'north': move('n'); break;
+    case 'south': move('s'); break;
+    case 'east':  move('e'); break;
+    case 'west':  move('w'); break;
+    case 'up':    move('u'); break;
+    case 'down':  move('d'); break;
+    case 'dig': {
+      // dig <dir> name=.../terrain=.../desc=.../light=.../safe=0|1
+      const [digDir, ...kvParts] = rest;
+      if (!digDir || !kvParts.length) {
+        log('Usage: dig <dir> name=Room Name/terrain=forest/desc=Description/light=normal/safe=0', 'err');
+        return;
+      }
+      const kv = kvParts.join(' ');
+      const params = {};
+      kv.split('/').forEach(part => {
+        const eq = part.indexOf('=');
+        if (eq < 0) return;
+        params[part.slice(0, eq).trim()] = part.slice(eq + 1).trim();
+      });
+      if (!params.name) { log('dig: name= required', 'err'); return; }
+      socket?.emit('admin:dig', {
+        direction:    digDir,
+        name:         params.name,
+        short_desc:   params.desc    || params.short_desc || '',
+        terrain_type: params.terrain || 'plains',
+        light_level:  params.light   || 'normal',
+        safe_zone:    params.safe === '1' || params.safe === 'true',
+        indoor:       params.indoor === '1' || params.indoor === 'true',
+      });
+      break;
+    }
+    default:
+      log(`Unknown: ${cmd}. Try: say/tell/yell/emote, look, inv/equip, get/drop/examine, attack/flee/talk, n/s/e/w`, 'err');
+  }
+}
+
+// Keyboard shortcuts (when not in input)
+const KEY_DIR = { ArrowUp:'n', ArrowDown:'s', ArrowLeft:'w', ArrowRight:'e' };
+document.addEventListener('keydown', e => {
+  const active = document.activeElement;
+  if (active.id === 'cmdInput' || active.tagName === 'TEXTAREA' || active.tagName === 'INPUT') return;
+  const dir = KEY_DIR[e.key];
+  if (dir) { e.preventDefault(); move(dir); }
+});
+
+function move(dir) { socket?.emit('move', { direction: dir }); }
+
+// Click ground item → fill drop zone or get
+function clickGroundItem(id, name) {
+  socket?.emit('item:get', { item_id: id });
+}
+function clickInvItem(id, name) {
+  // Right-click or shift-click to drop; normal click to equip (for equippable items) or examine
+  const item = inventory.get(id);
+  if (item && ['weapon','armor','clothing'].includes(item.type) && !item.equippedSlot) {
+    socket?.emit('equip', { item_id: id });
+    sideTab('equip');
+  } else if (item?.equippedSlot) {
+    socket?.emit('unequip', { slot: item.equippedSlot });
+  } else {
+    socket?.emit('item:drop', { item_id: id });
+  }
+}
+function clickNpc(id, name) {
+  sideTab('npcs');
+  document.getElementById('removeNpcId').value = id;
+  document.getElementById('dialogueNpcId').value = id;
+}
+
+// ═══════════════════════════════════════════════════
+// Log
+// ═══════════════════════════════════════════════════
+function log(text, type='') {
+  const area = document.getElementById('logArea');
+  const p = document.createElement('p');
+  p.className = 'log-line' + (type?` ${type}`:'');
+  p.textContent = text;
+  area.appendChild(p);
+  area.scrollTop = 9e9;
+  while (area.children.length > 300) area.removeChild(area.firstChild);
+}
+
+// ═══════════════════════════════════════════════════
+// Side panel tabs
+// ═══════════════════════════════════════════════════
+function sideTab(tab) {
+  const tabs = ['players','npcs','ground','inv','equip'];
+  document.querySelectorAll('.side-tab').forEach((t,i) => t.classList.toggle('active', tabs[i]===tab));
+  document.querySelectorAll('.side-content').forEach((c,i) => c.classList.toggle('active', tabs[i]===tab));
+}
+
+// ═══════════════════════════════════════════════════
+// Admin
+// ═══════════════════════════════════════════════════
+function adminCopyDigTemplate() {
+  const dirs = ['n','s','e','w','ne','nw','se','sw','u','d'];
+  const template = `dig n name=Room Name/terrain=plains/desc=A brief atmospheric description./light=normal/safe=0`;
+  const input = document.getElementById('cmdInput');
+  if (input) { input.value = template; input.focus(); input.select(); }
+  log('Dig template loaded. Edit then press Enter to create the room.', 'sys');
+  log('Fields: name / terrain=(city|forest|dungeon|cave|plains|mountain|desert|tundra|ocean|river|ethereal|divine) / desc / light=(bright|normal|dim|dark|pitch_black) / safe=(0|1) / indoor=(0|1)', 'sys');
+  log(`Directions: ${dirs.join(' | ')}`, 'sys');
+}
+
+function toggleAdminPanel() {
+  document.getElementById('adminPanel').classList.toggle('open');
+  if (document.getElementById('adminPanel').classList.contains('open')) adminLook();
+}
+
+function adminTab(tab) {
+  const tabs=['room','items','npcs','ai','agent','subs'];
+  document.querySelectorAll('.admin-tab').forEach((t,i) => t.classList.toggle('active', tabs[i]===tab));
+  document.querySelectorAll('.admin-content').forEach((c,i) => c.classList.toggle('active', tabs[i]===tab));
+}
+function adminLook() { socket?.emit('admin:look'); }
+
+function handleAdminRoomInfo(data) {
+  const exits = (data.exits_detail||[]).map(x=>`${x.dir}→${x.to_room_name.slice(0,12)}`).join('  ');
+  document.getElementById('adminRoomMeta').textContent =
+    `ID: ${data.id}\n${data.item_count??0}/${data.item_cap??50} items  ${data.player_count??0} players\n${exits||'no exits'}`;
+  document.getElementById('editName').value   = data.name||'';
+  document.getElementById('editDesc').value   = data.short_desc||'';
+  document.getElementById('editLight').value  = data.light_level||'normal';
+  document.getElementById('editCap').value    = data.item_cap??50;
+  document.getElementById('editSafe').checked   = !!data.safe_zone;
+  document.getElementById('editIndoor').checked = !!data.indoor;
+}
+
+function adminDig() {
+  const name=document.getElementById('digName').value.trim(), desc=document.getElementById('digDesc').value.trim();
+  if (!name||!desc) { log('Dig: name and desc required','err'); return; }
+  socket?.emit('admin:dig', { direction:document.getElementById('digDir').value, name, short_desc:desc, terrain_type:document.getElementById('digTerrain').value });
+}
+function adminLink() {
+  const target=document.getElementById('linkTarget').value.trim();
+  if (!target) { log('Link: target ID required','err'); return; }
+  socket?.emit('admin:link', { direction:document.getElementById('linkDir').value, target_room_id:target, bidirectional:document.getElementById('linkBidi').checked, is_door:document.getElementById('linkDoor').checked });
+}
+function adminUnlink() {
+  if (!confirm('Remove this exit?')) return;
+  socket?.emit('admin:unlink', { direction:document.getElementById('unlinkDir').value });
+}
+function adminSetRoom() {
+  socket?.emit('admin:setroom', {
+    name:document.getElementById('editName').value.trim(),
+    short_desc:document.getElementById('editDesc').value.trim(),
+    light_level:document.getElementById('editLight').value,
+    item_cap:Number(document.getElementById('editCap').value),
+    safe_zone:document.getElementById('editSafe').checked,
+    indoor:document.getElementById('editIndoor').checked,
+  });
+}
+function adminPlaceItem() {
+  const tid=document.getElementById('placeTemplateId').value.trim();
+  if (!tid) { log('Template ID required','err'); return; }
+  const pers=document.getElementById('placePersistent').checked;
+  const dur=document.getElementById('placeDuration').value;
+  socket?.emit('admin:placeitem', { template_id:tid, is_persistent:pers, duration_seconds:(!pers&&dur)?Number(dur):null, stack_count:Number(document.getElementById('placeStack').value)||1 });
+}
+function adminRemoveItem() {
+  const id=document.getElementById('removeItemId').value.trim();
+  if (!id) return;
+  socket?.emit('admin:removeitem', { item_id:id });
+}
+function adminTeleport() {
+  const id=document.getElementById('tpTarget').value.trim();
+  if (!id) return;
+  socket?.emit('admin:teleport', { room_id:id });
+}
+
+function adminAIGenerate() {
+  const prompt=document.getElementById('aiPrompt').value.trim();
+  if (!prompt) { log('AI: prompt required','err'); return; }
+  document.getElementById('aiDraftPreview').style.display = 'none';
+  socket?.emit('admin:ai:generate', { direction:document.getElementById('aiDir').value, count:Number(document.getElementById('aiCount').value)||3, prompt });
+}
+function handleAIDraft(data) {
+  const preview=document.getElementById('aiDraftPreview'), content=document.getElementById('aiDraftContent');
+  if (data.status==='preview') {
+    let html=`<strong style="color:var(--accent2)">${data.theme_note}</strong><br><br>`;
+    data.rooms.forEach(r => { html+=`<strong>${r.name}</strong> [${r.terrain_type}]<br><em>${r.short_desc}</em><br><br>`; });
+    html+=`Exits: ${data.exits.map(e=>`${e.from}→${e.direction}→${e.to}`).join(', ')}`;
+    content.innerHTML = html;
+    preview.style.display = 'block';
+    log(`AI draft ready: ${data.rooms.length} room(s).`,'sys');
+    adminTab('ai');
+  } else if (data.status==='committed') {
+    preview.style.display = 'none';
+    log(`Committed: ${data.rooms.map(r=>r.name).join(', ')}`,'sys');
+    adminLook();
+  } else {
+    preview.style.display = 'none';
+    log('Draft discarded.','sys');
+  }
+}
+// ═══════════════════════════════════════════════════
+// Worldbuilder Modal
+// ═══════════════════════════════════════════════════
+function openWBModal() {
+  wbReset();
+  document.getElementById('wbModal').classList.add('open');
+}
+function closeWBModal() {
+  document.getElementById('wbModal').classList.remove('open');
+}
+function wbBack() {
+  _wbShowStep(1);
+}
+function wbReset() {
+  wbPreviewData = null;
+  wbType = 'weapon';
+  document.querySelectorAll('.wb-type-btn').forEach(b => b.classList.toggle('active', b.dataset.type === 'weapon'));
+  document.getElementById('wbDescription').value = '';
+  document.getElementById('wbErr').textContent = '';
+  document.getElementById('wbNotes').value = '';
+  _wbShowStep(1);
+}
+function _wbShowStep(n) {
+  document.querySelectorAll('.wb-step').forEach((s,i) => s.classList.toggle('active', i+1===n));
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.wb-type-btn').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('.wb-type-btn').forEach(x => x.classList.remove('active'));
+    b.classList.add('active'); wbType = b.dataset.type;
+  }));
+  document.getElementById('wbModal').addEventListener('click', e => {
+    if (e.target === document.getElementById('wbModal')) closeWBModal();
+  });
+});
+
+async function wbPreview() {
+  const desc = document.getElementById('wbDescription').value.trim();
+  if (!desc || desc.length < 10) {
+    document.getElementById('wbErr').textContent = 'Description must be at least 10 characters.';
+    return;
+  }
+  document.getElementById('wbErr').textContent = '';
+  const btn = document.getElementById('wbPreviewBtn');
+  btn.disabled = true; btn.textContent = 'GENERATING...';
+
+  try {
+    const data = await apiFetch('/api/wb/preview', {
+      method: 'POST',
+      body: { type: wbType, description: desc, creator_name: selfName || 'Unknown' },
+    });
+    wbPreviewData = data;
+    _renderWBPreview(data);
+    _wbShowStep(2);
+  } catch(e) {
+    document.getElementById('wbErr').textContent = e.message;
+  } finally {
+    btn.disabled = false; btn.textContent = 'GENERATE PREVIEW';
+  }
+}
+
+function _renderWBPreview(data) {
+  const card = document.getElementById('wbPreviewCard');
+  const attrs = data.attributes || {};
+  const rows = Object.entries(attrs)
+    .filter(([k]) => k !== 'name')
+    .map(([k,v]) => `<div class="wb-attr-row"><span class="wb-attr-key">${k}</span><span class="wb-attr-val">${typeof v === 'object' ? JSON.stringify(v) : v}</span></div>`)
+    .join('');
+
+  const name = attrs.name || data.description?.slice(0,40) || 'Unnamed';
+  card.innerHTML = `
+    <div style="font-family:var(--pixel);font-size:9px;color:var(--accent2);margin-bottom:.5rem">[${data.type.toUpperCase()}] ${escapeHtml(name)}</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:.5rem">${escapeHtml(data.description)}</div>
+    ${rows}
+    ${data.image_url ? `<img src="${data.image_url}" class="wb-image" alt="generated" />` : '<div style="font-size:10px;color:var(--dim);margin-top:.4rem;font-style:italic">Image will be generated on submission.</div>'}
+  `;
+
+  const lore = data.lore_validation;
+  if (lore) {
+    if (lore.passes) {
+      document.getElementById('wbLoreOk').style.display = '';
+      document.getElementById('wbLoreWarn').style.display = 'none';
+    } else {
+      document.getElementById('wbLoreOk').style.display = 'none';
+      const warn = document.getElementById('wbLoreWarn');
+      warn.style.display = '';
+      warn.textContent = `⚠ Lore concerns: ${(lore.concerns||[]).join('. ')} ${lore.suggestions?.length ? '— ' + lore.suggestions.join('. ') : ''}`;
+    }
+  }
+}
+
+async function wbSubmit() {
+  if (!wbPreviewData) return;
+  const btn = document.getElementById('wbSubmitBtn');
+  btn.disabled = true; btn.textContent = 'SUBMITTING...';
+  try {
+    const result = await apiFetch('/api/wb/submit', {
+      method: 'POST',
+      body: {
+        type: wbPreviewData.type,
+        description: wbPreviewData.description,
+        creator_name: selfName || 'Unknown',
+        attributes: wbPreviewData.attributes,
+        image_prompt: wbPreviewData.image_prompt,
+        lore_notes: document.getElementById('wbNotes').value.trim() || null,
+      },
+    });
+    document.getElementById('wbSubmissionId').textContent = `Submission ID: ${result.id}`;
+    _wbShowStep(3);
+    log(`Worldbuilder: "${wbPreviewData.attributes?.name||wbPreviewData.type}" submitted for review.`, 'sys');
+  } catch(e) {
+    document.getElementById('wbErr').textContent = e.message;
+    _wbShowStep(1);
+  } finally {
+    btn.disabled = false; btn.textContent = 'SUBMIT FOR REVIEW';
+  }
+}
+
+function adminAICommit() { socket?.emit('admin:ai:commit'); }
+function adminAIDiscard() { document.getElementById('aiDraftPreview').style.display='none'; socket?.emit('admin:ai:discard'); }
+
+function adminNpcPlace() {
+  const name = document.getElementById('npcName').value.trim();
+  if (!name) { log('NPC name required','err'); return; }
+  let dialogue = [];
+  const raw = document.getElementById('npcDialogue').value.trim();
+  if (raw) {
+    try { dialogue = JSON.parse(raw); } catch { log('Dialogue must be valid JSON','err'); return; }
+  }
+  const isCombatant = document.getElementById('npcCombatant').checked;
+  socket?.emit('admin:npc:place', {
+    name,
+    title: document.getElementById('npcTitle').value.trim() || null,
+    race: document.getElementById('npcRace').value,
+    role: document.getElementById('npcRole').value.trim() || 'citizen',
+    description: document.getElementById('npcDesc').value.trim() || null,
+    dialogue,
+    is_combatant: isCombatant,
+    max_health:        isCombatant ? Number(document.getElementById('npcMaxHp').value)  || 100 : 100,
+    attack_power:      isCombatant ? Number(document.getElementById('npcAtk').value)    || 10  : 10,
+    armor:             isCombatant ? Number(document.getElementById('npcArmor').value)  || 0   : 0,
+    experience_reward: isCombatant ? Number(document.getElementById('npcXp').value)     || 25  : 25,
+    gold_reward:       isCombatant ? Number(document.getElementById('npcGold').value)   || 0   : 0,
+    respawn_seconds:   isCombatant ? Number(document.getElementById('npcRespawn').value)|| 300 : 300,
+  });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const cb = document.getElementById('npcCombatant');
+  if (cb) cb.addEventListener('change', () => {
+    const show = cb.checked;
+    document.getElementById('npcCombatFields').style.display = show ? '' : 'none';
+    document.getElementById('npcRewardFields').style.display = show ? '' : 'none';
+  });
+});
+function adminNpcRemove() {
+  const id = document.getElementById('removeNpcId').value.trim();
+  if (!id) return;
+  if (!confirm('Remove NPC?')) return;
+  socket?.emit('admin:npc:remove', { npc_id: id });
+}
+function adminNpcDialogue() {
+  const id = document.getElementById('dialogueNpcId').value.trim();
+  const raw = document.getElementById('dialogueJson').value.trim();
+  if (!id || !raw) { log('NPC ID and dialogue required','err'); return; }
+  let dialogue;
+  try { dialogue = JSON.parse(raw); } catch { log('Dialogue must be valid JSON','err'); return; }
+  socket?.emit('admin:npc:dialogue', { npc_id: id, dialogue });
+}
+
+// ─── Autonomous World Agent ───────────────────────────────────────────────────
+let _agentMode = 'new';
+
+function setAgentMode(mode) {
+  _agentMode = mode;
+  document.getElementById('agentModeNew').style.color    = mode === 'new'    ? 'var(--accent3)' : '';
+  document.getElementById('agentModeExpand').style.color = mode === 'expand' ? 'var(--accent3)' : '';
+  document.getElementById('agentModeLabel').textContent  = mode === 'new'
+    ? 'Builds a brand-new area from the current room. Commits rooms, NPCs, items and pixel art in one pass.'
+    : 'Reads nearby rooms for context, then generates thematically consistent additions.';
+  const roomsInput = document.getElementById('agentRooms');
+  if (roomsInput && mode === 'expand') roomsInput.value = '3';
+}
+
+function adminAgentRun() {
+  const prompt = document.getElementById('agentPrompt').value.trim();
+  if (!prompt) { log('Agent: prompt required.', 'err'); return; }
+  const btn = document.getElementById('agentRunBtn');
+  btn.disabled = true; btn.textContent = '⏳ RUNNING...';
+  document.getElementById('agentProgress').style.display = 'block';
+  document.getElementById('agentResult').style.display = 'none';
+  document.getElementById('agentLog').textContent = '';
+  const agentImg = document.getElementById('agentEntryImage');
+  if (agentImg) agentImg.style.display = 'none';
+  adminTab('agent');
+  const payload = {
+    prompt,
+    direction:     document.getElementById('agentDir').value,
+    room_count:    Number(document.getElementById('agentRooms').value) || 5,
+    include_npcs:  document.getElementById('agentNpcs').checked,
+    include_items: document.getElementById('agentItems').checked,
+  };
+  socket?.emit(_agentMode === 'expand' ? 'admin:agent:expand' : 'admin:agent:run', payload);
+}
+
+function handleAgentResult(data) {
+  const btn = document.getElementById('agentRunBtn');
+  btn.disabled = false; btn.textContent = '✦ RUN AGENT';
+  if (data.status === 'complete') {
+    document.getElementById('agentResult').style.display = 'block';
+    const lore = data.lore ? `<em style="color:var(--dim)">${escapeHtml(data.lore)}</em><br><br>` : '';
+    document.getElementById('agentSummary').innerHTML =
+      `<strong style="color:var(--accent2)">${escapeHtml(data.area_name)}</strong><br>` +
+      `${escapeHtml(data.theme_note)}<br><br>` +
+      lore +
+      `${data.rooms?.length || 0} rooms &nbsp;·&nbsp; ${data.npcs?.length || 0} NPCs &nbsp;·&nbsp; ${data.items?.length || 0} items<br>` +
+      (data.entry_room_id ? `<span style="color:var(--dim)">Entry: ${data.entry_room_id.slice(0,8)}</span>` : '');
+    const agentImg = document.getElementById('agentEntryImage');
+    if (agentImg && data.entry_image) { agentImg.src = data.entry_image; agentImg.style.display = ''; }
+  } else if (data.status === 'error') {
+    _agentLog(`ERROR: ${data.message}`);
+  }
+}
+
+function _agentLog(text) {
+  const el = document.getElementById('agentLog');
+  if (!el) return;
+  el.textContent += (el.textContent ? '\n' : '') + text;
+  el.scrollTop = el.scrollHeight;
+}
+
+// ─── Worldbuilding submissions review ─────────────────────────────────────────
+async function adminLoadSubs(status = 'pending') {
+  const list = document.getElementById('subsList');
+  list.innerHTML = '<span style="color:var(--dim)">Loading...</span>';
+  adminTab('subs');
+  try {
+    const rows = await apiFetch(`/api/world/submissions?status=${status}`);
+    if (!rows.length) { list.innerHTML = `<span style="color:var(--dim)">No ${status} submissions.</span>`; return; }
+    list.innerHTML = rows.map(s => `
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:.5rem;margin-bottom:.4rem">
+        <div style="font-family:var(--pixel);font-size:8px;color:var(--accent2)">[${s.type.toUpperCase()}] ${escapeHtml(s.attributes?.name||s.description?.slice(0,30)||'?')}</div>
+        <div style="font-size:10px;color:var(--muted);margin:.2rem 0">${escapeHtml(s.creator_name)} · ${new Date(s.created_at).toLocaleDateString()}</div>
+        <div style="font-size:10px;color:var(--text);margin-bottom:.3rem">${escapeHtml((s.description||'').slice(0,80))}${s.description?.length>80?'…':''}</div>
+        ${s.image_url?`<img src="${s.image_url}" style="width:100%;border-radius:2px;image-rendering:pixelated;margin-bottom:.3rem" />`:''}
+        ${status==='pending'?`
+        <div style="display:flex;gap:.3rem">
+          <button class="abtn" style="flex:1;color:var(--success)" onclick="adminApproveSub('${s.id}')">✓ Approve</button>
+          <button class="abtn danger" style="flex:1" onclick="adminRejectSub('${s.id}')">✕ Reject</button>
+        </div>`:`<div style="font-size:10px;color:var(--success)">✓ ${s.status}</div>`}
+      </div>`).join('');
+  } catch(e) { list.innerHTML = `<span style="color:var(--danger)">${e.message}</span>`; }
+}
+
+async function adminApproveSub(id) {
+  try {
+    await apiFetch(`/api/world/submissions/${id}/approve`, { method: 'POST', body: { admin_notes: 'Approved via in-game panel.' } });
+    log(`Submission ${id.slice(0,8)} approved and committed to world.`, 'sys');
+    adminLoadSubs('pending');
+  } catch(e) { log(`Approve error: ${e.message}`, 'err'); }
+}
+
+async function adminRejectSub(id) {
+  const notes = prompt('Rejection reason (optional):') || 'Does not meet world standards.';
+  try {
+    await apiFetch(`/api/world/submissions/${id}/reject`, { method: 'POST', body: { admin_notes: notes } });
+    log(`Submission ${id.slice(0,8)} rejected.`, 'sys');
+    adminLoadSubs('pending');
+  } catch(e) { log(`Reject error: ${e.message}`, 'err'); }
+}
+
+async function adminCreateTemplate() {
+  const name = document.getElementById('tmplName').value.trim();
+  const type = document.getElementById('tmplType').value;
+  if (!name) { log('Template name required','err'); return; }
+  let attributes = {};
+  const raw = document.getElementById('tmplAttrs').value.trim();
+  if (raw) {
+    try { attributes = JSON.parse(raw); } catch { log('Attributes must be valid JSON','err'); return; }
+  }
+  try {
+    const t = await apiFetch('/api/world/item-templates', { method:'POST', body:{
+      name, type,
+      description: document.getElementById('tmplDesc').value.trim() || null,
+      weight: Number(document.getElementById('tmplWeight').value) || 1,
+      is_stackable: document.getElementById('tmplStackable').checked,
+      max_stack: Number(document.getElementById('tmplMaxStack').value) || 1,
+      attributes,
+    }});
+    const el = document.getElementById('tmplResult');
+    el.textContent = `Created: ${t.name} [${t.id.slice(0,8)}]`;
+    document.getElementById('placeTemplateId').value = t.id;
+  } catch(e) { log(`Template error: ${e.message}`,'err'); }
+}
+
+// ═══════════════════════════════════════════════════
+// Utilities
+// ═══════════════════════════════════════════════════
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+async function apiFetch(path, opts={}) {
+  const res = await fetch(API+path, {
+    ...opts,
+    headers: { 'Content-Type':'application/json', ...(token?{Authorization:`Bearer ${token}`}:{}), ...(opts.headers||{}) },
+    body: opts.body ? JSON.stringify(opts.body) : undefined,
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error||'Request failed');
+  return data;
+}
+
+function escapeHtml(s) { return String(s).replace(/['"&<>]/g,''); }
+</script>
+</body>
+</html>

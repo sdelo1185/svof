@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>World Builder — Pixel MMO</title>
+  <style>
+    :root {
+      --bg: #0d0f1a;
+      --surface: #161929;
+      --border: #2a3050;
+      --accent: #7c6af7;
+      --accent2: #f7a26a;
+      --text: #d4d8f0;
+      --muted: #6b7099;
+      --success: #4caf80;
+      --warn: #f7c86a;
+      --danger: #f76a6a;
+      --pixel: 'Press Start 2P', monospace;
+    }
+    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Share+Tech+Mono&display=swap');
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: 'Share Tech Mono', monospace; font-size: 14px; min-height: 100vh; }
+
+    header {
+      background: var(--surface);
+      border-bottom: 2px solid var(--accent);
+      padding: 1rem 2rem;
+      display: flex; align-items: center; gap: 1rem;
+    }
+    header h1 { font-family: var(--pixel); font-size: 12px; color: var(--accent); letter-spacing: 1px; }
+    header span { color: var(--muted); font-size: 12px; }
+
+    .layout { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 1200px; margin: 2rem auto; padding: 0 1.5rem; }
+    @media (max-width: 800px) { .layout { grid-template-columns: 1fr; } }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1.5rem;
+    }
+    .panel h2 { font-family: var(--pixel); font-size: 10px; color: var(--accent2); margin-bottom: 1.25rem; letter-spacing: 1px; }
+
+    label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 0.3rem; margin-top: 1rem; }
+    input, select, textarea {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      color: var(--text);
+      padding: 0.6rem 0.75rem;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+    textarea { resize: vertical; min-height: 100px; }
+    select option { background: var(--surface); }
+
+    .type-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+    .type-btn {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      color: var(--muted);
+      padding: 0.5rem;
+      cursor: pointer;
+      text-align: center;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 12px;
+      transition: all 0.15s;
+    }
+    .type-btn:hover { border-color: var(--accent); color: var(--text); }
+    .type-btn.active { border-color: var(--accent); background: #1e1f3d; color: var(--accent); }
+
+    .btn {
+      display: inline-block;
+      padding: 0.65rem 1.4rem;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      font-family: var(--pixel);
+      font-size: 9px;
+      letter-spacing: 1px;
+      transition: opacity 0.15s;
+    }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-success { background: var(--success); color: #fff; }
+    .btn-row { display: flex; gap: 0.75rem; margin-top: 1.25rem; flex-wrap: wrap; }
+
+    /* Preview panel */
+    .image-box {
+      width: 100%;
+      aspect-ratio: 1;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--muted);
+      font-size: 11px;
+      overflow: hidden;
+      image-rendering: pixelated;
+    }
+    .image-box img { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; }
+
+    .attr-table { width: 100%; border-collapse: collapse; margin-top: 0.75rem; font-size: 12px; }
+    .attr-table tr:nth-child(even) td { background: #0d0f1a44; }
+    .attr-table td { padding: 0.35rem 0.5rem; border: 1px solid var(--border); vertical-align: top; }
+    .attr-table td:first-child { color: var(--muted); white-space: nowrap; width: 40%; }
+    .attr-table td:last-child { color: var(--text); word-break: break-word; }
+
+    .badge {
+      display: inline-block;
+      padding: 0.2rem 0.5rem;
+      border-radius: 2px;
+      font-size: 11px;
+      font-family: var(--pixel);
+    }
+    .badge-common { background: #3a3a3a; color: #aaa; }
+    .badge-uncommon { background: #1a3a1a; color: #4caf80; }
+    .badge-rare { background: #1a1a3a; color: #6a9ef7; }
+    .badge-epic { background: #2a1a3a; color: #c07af7; }
+    .badge-legendary { background: #3a2a0a; color: #f7c86a; }
+    .badge-exotic { background: #3a1a1a; color: #f76a6a; }
+
+    .lore-box {
+      margin-top: 0.75rem;
+      padding: 0.75rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      font-size: 12px;
+    }
+    .lore-box.warn { border-color: var(--warn); }
+    .lore-box.ok { border-color: var(--success); }
+    .lore-label { font-family: var(--pixel); font-size: 9px; margin-bottom: 0.5rem; color: var(--muted); }
+
+    .spinner {
+      display: inline-block;
+      width: 16px; height: 16px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .status-msg {
+      margin-top: 0.75rem;
+      padding: 0.6rem 0.75rem;
+      border-radius: 3px;
+      font-size: 12px;
+    }
+    .status-msg.success { background: #1a3a2a; border: 1px solid var(--success); color: var(--success); }
+    .status-msg.error { background: #3a1a1a; border: 1px solid var(--danger); color: var(--danger); }
+
+    .prompt-preview {
+      margin-top: 0.5rem;
+      padding: 0.5rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      font-size: 11px;
+      color: var(--muted);
+      font-style: italic;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>WORLD BUILDER</h1>
+    <span>Submit a creation for admin review &amp; world integration</span>
+  </header>
+
+  <div class="layout">
+    <!-- LEFT: Input form -->
+    <div class="panel">
+      <h2>YOUR CREATION</h2>
+
+      <label>Your name / character</label>
+      <input id="creator" type="text" placeholder="e.g. Serafin of Cyrene" maxlength="60" />
+
+      <label>Creation type</label>
+      <div class="type-grid" id="typeGrid">
+        <div class="type-btn active" data-type="weapon">⚔ Weapon</div>
+        <div class="type-btn" data-type="armor">🛡 Armor</div>
+        <div class="type-btn" data-type="clothing">👘 Clothing</div>
+        <div class="type-btn" data-type="room">🏛 Room</div>
+        <div class="type-btn" data-type="consumable">⚗ Consumable</div>
+        <div class="type-btn" data-type="tool">🔨 Tool</div>
+        <div class="type-btn" data-type="furniture">🪑 Furniture</div>
+      </div>
+
+      <label>Describe your creation</label>
+      <textarea id="description" placeholder="Describe your creation in detail. Include appearance, origin, lore, materials, and any special properties you have in mind. The more detail you provide, the better the AI can interpret your vision.
+
+Example: A slender rapier forged from moonsilver, its crossguard shaped like spread wings. Commissioned by a Paladin of Sartan to combat shadow-touched creatures in the underdark beneath Ashtan..." rows="8"></textarea>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" id="previewBtn" onclick="doPreview()">GENERATE PREVIEW</button>
+      </div>
+      <div id="formStatus"></div>
+    </div>
+
+    <!-- RIGHT: Preview + submit -->
+    <div class="panel" id="previewPanel">
+      <h2>PREVIEW</h2>
+
+      <div class="image-box" id="imageBox">
+        <span>Generate a preview to see your pixel art</span>
+      </div>
+
+      <div id="promptPreviewWrap" style="display:none">
+        <div class="prompt-preview" id="promptPreview"></div>
+      </div>
+
+      <div id="attrsWrap" style="display:none">
+        <label style="margin-top:1rem">Generated attributes</label>
+        <table class="attr-table" id="attrsTable"></table>
+
+        <div id="loreWrap"></div>
+
+        <label style="margin-top:1rem">Additional notes for admin (optional)</label>
+        <textarea id="loreNotes" rows="3" placeholder="Any context, inspiration, or requests for the admin reviewing this submission..."></textarea>
+
+        <div class="btn-row">
+          <button class="btn btn-primary" id="regenerateBtn" onclick="doPreview()">↺ REGENERATE</button>
+          <button class="btn btn-success" id="submitBtn" onclick="doSubmit()">✓ SUBMIT FOR REVIEW</button>
+        </div>
+        <div id="submitStatus"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API = '';  // same origin
+    let currentPreview = null;
+    let selectedType = 'weapon';
+
+    // Type selector
+    document.querySelectorAll('.type-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        selectedType = btn.dataset.type;
+      });
+    });
+
+    function setStatus(el, msg, type) {
+      el.innerHTML = msg ? `<div class="status-msg ${type}">${msg}</div>` : '';
+    }
+
+    function rarityBadge(rarity) {
+      if (!rarity) return '';
+      return `<span class="badge badge-${rarity}">${rarity.toUpperCase()}</span>`;
+    }
+
+    function renderAttrs(attrs) {
+      const table = document.getElementById('attrsTable');
+      table.innerHTML = '';
+      for (const [k, v] of Object.entries(attrs)) {
+        if (v === null || v === undefined || v === '') continue;
+        let display = v;
+        if (k === 'rarity') display = rarityBadge(v);
+        else if (Array.isArray(v)) display = v.length ? v.map(x => `• ${x}`).join('<br>') : '—';
+        else if (typeof v === 'object') {
+          display = Object.entries(v).map(([kk, vv]) => `${kk}: ${vv}`).join('<br>');
+        } else if (typeof v === 'boolean') display = v ? 'Yes' : 'No';
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${k.replace(/_/g,' ')}</td><td>${display}</td>`;
+        table.appendChild(tr);
+      }
+    }
+
+    function renderLore(lore) {
+      const wrap = document.getElementById('loreWrap');
+      if (!lore) { wrap.innerHTML = ''; return; }
+      const cls = lore.passes ? 'ok' : 'warn';
+      let html = `<div class="lore-box ${cls}"><div class="lore-label">LORE CHECK</div>`;
+      if (lore.concerns?.length) {
+        html += `<strong>Concerns:</strong><br>${lore.concerns.map(c=>`• ${c}`).join('<br>')}<br>`;
+      }
+      if (lore.suggestions?.length) {
+        html += `<strong>Suggestions:</strong><br>${lore.suggestions.map(s=>`• ${s}`).join('<br>')}<br>`;
+      }
+      if (lore.lore_note) {
+        html += `<em>${lore.lore_note}</em>`;
+      }
+      html += '</div>';
+      wrap.innerHTML = html;
+    }
+
+    async function doPreview() {
+      const creator = document.getElementById('creator').value.trim();
+      const description = document.getElementById('description').value.trim();
+      const formStatus = document.getElementById('formStatus');
+
+      if (!creator) { setStatus(formStatus, 'Enter your character name.', 'error'); return; }
+      if (description.length < 10) { setStatus(formStatus, 'Description too short.', 'error'); return; }
+
+      setStatus(formStatus, '', '');
+      document.getElementById('previewBtn').disabled = true;
+      document.getElementById('previewBtn').innerHTML = '<span class="spinner"></span> GENERATING...';
+      document.getElementById('attrsWrap').style.display = 'none';
+      document.getElementById('imageBox').innerHTML = '<span class="spinner"></span>';
+
+      try {
+        const res = await fetch(`${API}/api/world/preview`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: selectedType, description, creator_name: creator }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Server error');
+
+        currentPreview = data;
+
+        // Image placeholder (real image generated on submit to save API cost)
+        document.getElementById('imageBox').innerHTML = `
+          <div style="text-align:center;padding:1rem;color:var(--muted);font-size:11px">
+            🎨 Pixel art will be generated on submission<br><br>
+            <em style="font-size:10px">${data.image_prompt?.slice(0,80)}...</em>
+          </div>`;
+
+        document.getElementById('promptPreviewWrap').style.display = 'block';
+        document.getElementById('promptPreview').textContent = data.image_prompt;
+
+        renderAttrs(data.attributes);
+        renderLore(data.lore_validation);
+        document.getElementById('attrsWrap').style.display = 'block';
+
+      } catch (err) {
+        setStatus(formStatus, `Error: ${err.message}`, 'error');
+        document.getElementById('imageBox').innerHTML = '<span>Preview failed</span>';
+      } finally {
+        document.getElementById('previewBtn').disabled = false;
+        document.getElementById('previewBtn').textContent = 'GENERATE PREVIEW';
+      }
+    }
+
+    async function doSubmit() {
+      if (!currentPreview) return;
+      const submitStatus = document.getElementById('submitStatus');
+      const loreNotes = document.getElementById('loreNotes').value.trim();
+
+      document.getElementById('submitBtn').disabled = true;
+      document.getElementById('submitBtn').innerHTML = '<span class="spinner"></span> SUBMITTING...';
+      setStatus(submitStatus, '', '');
+
+      try {
+        const res = await fetch(`${API}/api/world/submit`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: currentPreview.type,
+            description: currentPreview.description,
+            creator_name: currentPreview.creator_name,
+            attributes: currentPreview.attributes,
+            image_prompt: currentPreview.image_prompt,
+            lore_notes: loreNotes || null,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Server error');
+
+        setStatus(submitStatus,
+          `✓ Submitted! ID: <strong>${data.id}</strong><br>${data.message}`,
+          'success'
+        );
+        document.getElementById('submitBtn').disabled = true;
+        document.getElementById('regenerateBtn').disabled = true;
+
+        if (data.image_url) {
+          document.getElementById('imageBox').innerHTML = `<img src="${data.image_url}" alt="Generated pixel art" />`;
+        }
+
+      } catch (err) {
+        setStatus(submitStatus, `Error: ${err.message}`, 'error');
+        document.getElementById('submitBtn').disabled = false;
+        document.getElementById('submitBtn').textContent = '✓ SUBMIT FOR REVIEW';
+      }
+    }
+  </script>
+</body>
+</html>

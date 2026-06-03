@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Sprite Preview</title>
+<style>
+  * { box-sizing:border-box; }
+  html { overflow-y:scroll; }
+  body { background:#0d0f1a; color:#d4d8f0; font-family:'Courier New',monospace; padding:1.5rem; margin:0; min-height:100%; overflow-x:hidden; }
+  h1   { color:#7c6af7; font-size:15px; letter-spacing:2px; margin:0 0 .2rem; }
+  h2   { color:#9090d0; font-size:12px; letter-spacing:1px; margin:1.8rem 0 .25rem; border-bottom:1px solid #2a3050; padding-bottom:.35rem; }
+  p    { color:#6b7099; font-size:10px; margin:.1rem 0 .8rem; }
+  .grid { display:flex; flex-wrap:wrap; gap:1rem; }
+  .card { background:#12142a; border:1px solid #2a3050; border-radius:5px; padding:.6rem .6rem .45rem; text-align:center; transition:border-color .15s; }
+  .card:hover { border-color:#6060a0; }
+  .card canvas { display:block; margin:0 auto; image-rendering:pixelated; }
+  .rname { font-size:11px; color:#c8ccf0; margin:.4rem 0 .1rem; font-weight:bold; }
+  .sub   { font-size:9px; color:#5a5a80; }
+  .cls   { font-size:9px; color:#7070a0; margin-top:.1rem; }
+  .swatch { width:10px; height:10px; border-radius:2px; display:inline-block; vertical-align:middle; margin-right:3px; border:1px solid rgba(255,255,255,0.15); }
+</style>
+</head>
+<body>
+
+<h1>PIXEL MMO — RACE SPRITE GUIDE</h1>
+<p>Pixel-art style with outlines, 3-tone shading, pauldrons, and chibi proportions. 3× zoom.</p>
+
+<h2>ALL RACES — BARE (ADVENTURER, NO WEAPON)</h2>
+<p>Skin tone, hair colour, race features and body proportions at a glance.</p>
+<div class="grid" id="bare"></div>
+
+<h2>TYPICAL CLASS &amp; WEAPON PAIRINGS</h2>
+<p>Lore-appropriate class body colour, equipped weapon, race-matched terrain.</p>
+<div class="grid" id="classed"></div>
+
+<h2>IMMORTAL — ADMIN VARIANTS</h2>
+<p>Golden aura · floating halo · divine appearance across several gear combinations.</p>
+<div class="grid" id="immortal"></div>
+
+<h2>WARRIOR COMPARISON — ALL RACES, SAME CLASS</h2>
+<p>Every race as warrior + iron sword — isolates skin-tone and proportion differences.</p>
+<div class="grid" id="compare"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// COLOUR UTILITIES
+// ═══════════════════════════════════════════════════════
+
+function hexRGB(h) {
+  const n = parseInt((h||'888888').replace('#',''), 16);
+  return [(n>>16)&255, (n>>8)&255, n&255];
+}
+function rgbHex(r,g,b) {
+  return '#' + [r,g,b].map(v => Math.max(0,Math.min(255,v|0)).toString(16).padStart(2,'0')).join('');
+}
+function tint(h, a) {
+  const [r,g,b] = hexRGB(h);
+  return a >= 0
+    ? rgbHex(r+(255-r)*a, g+(255-g)*a, b+(255-b)*a)
+    : rgbHex(r*(1+a),     g*(1+a),     b*(1+a));
+}
+
+// ═══════════════════════════════════════════════════════
+// PRIMITIVE DRAWING — outlined + 3-tone shaded
+// ═══════════════════════════════════════════════════════
+
+const OL = '#06080f'; // dark outline colour
+
+function sRect(ctx, x, y, w, h, col, hi=0.28, sh=-0.38) {
+  x=Math.round(x); y=Math.round(y);
+  w=Math.max(1,Math.round(w)); h=Math.max(1,Math.round(h));
+  // Outline (slightly larger, drawn underneath)
+  ctx.fillStyle = OL;
+  ctx.fillRect(x-1, y-1, w+2, h+2);
+  // Shadow fill
+  ctx.fillStyle = tint(col, sh);
+  ctx.fillRect(x, y, w, h);
+  // Base fill (inset 1px bottom-right to keep shadow visible)
+  ctx.fillStyle = col;
+  ctx.fillRect(x, y, w-1, h-1);
+  // Highlight strip (top edge + top-left corner)
+  ctx.fillStyle = tint(col, hi);
+  ctx.fillRect(x, y, w-1, 1);
+  ctx.fillRect(x, y, 1, Math.max(1, Math.ceil(h/2)-1));
+}
+
+function sArc(ctx, x, y, r, col, hi=0.28) {
+  x=Math.round(x); y=Math.round(y); r=Math.max(2,Math.round(r));
+  ctx.fillStyle = OL;
+  ctx.beginPath(); ctx.arc(x, y, r+1, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = tint(col, -0.3);
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = col;
+  ctx.beginPath(); ctx.arc(x, y, r-0.6, 0, Math.PI*2); ctx.fill();
+  // Glint
+  ctx.fillStyle = tint(col, hi);
+  ctx.fillRect(x - Math.ceil(r*0.3), y - Math.ceil(r*0.5), Math.max(1,Math.ceil(r*0.4)), Math.max(1,Math.ceil(r*0.3)));
+}
+
+// ═══════════════════════════════════════════════════════
+// PALETTES + RACE CONFIG
+// ═══════════════════════════════════════════════════════
+
+const SKIN = {
+  human:'#d4a574', elf:'#c8d4a0', dwarf:'#c89060',
+  gnome:'#b0c890', halfling:'#d4b080', orc:'#90b060',
+  troll:'#708060', undead:'#9aaa96', merfolk:'#88b8c8',
+  celestial:'#e8d8b0', immortal:'#f0e8c0',
+};
+const CLASS_BODY = {
+  adventurer:'#7c6af7', warrior:'#8a4a3a', knight:'#5a6a8a', paladin:'#8a7a3a',
+  ranger:'#4a7a4a', rogue:'#4a3a6a', mage:'#4a5a8a', wizard:'#3a4a7a',
+  sorcerer:'#6a3a8a', druid:'#4a6a3a', cleric:'#7a7a4a', priest:'#8a7a5a',
+  bard:'#7a4a6a', monk:'#6a5a3a', berserker:'#8a3a2a', necromancer:'#3a4a3a',
+};
+const HAIR = {
+  human:'#7a4010', elf:'#c8c060', dwarf:'#8B3a10', gnome:'#9090e0',
+  halfling:'#805030', orc:'#303020', troll:'#304020', undead:'#505050',
+  merfolk:'#40a0c0', celestial:'#f0d860', immortal:'#e8c040',
+};
+const EYE = {
+  human:'#5a3010', elf:'#406030', dwarf:'#5a3010', gnome:'#4060a0',
+  halfling:'#603020', orc:'#802020', troll:'#806020', undead:'#cc2020',
+  merfolk:'#206080', celestial:'#c0a020', immortal:'#c09010',
+};
+
+const RC = {
+  human:    { hs:1.00, ws:1.00, feat:['hair_short'] },
+  elf:      { hs:1.10, ws:0.88, feat:['pointed_ears','hair_long'] },
+  dwarf:    { hs:0.82, ws:1.18, feat:['beard','hair_short'] },
+  gnome:    { hs:0.76, ws:0.86, feat:['hair_tuft','big_eyes'] },
+  halfling: { hs:0.80, ws:0.88, feat:['hair_curly','rosy_cheeks'] },
+  orc:      { hs:1.04, ws:1.10, feat:['tusks','heavy_brow'] },
+  troll:    { hs:1.18, ws:1.24, feat:['heavy_brow','thick_neck'] },
+  undead:   { hs:0.95, ws:0.82, feat:['hollow_eyes','gaunt'] },
+  merfolk:  { hs:1.00, ws:0.90, feat:['fin_ears','tail'] },
+  celestial:{ hs:1.06, ws:0.94, feat:['glow','hair_flowing'] },
+  immortal: { hs:1.00, ws:1.00, feat:['halo','aura','hair_short'] },
+};
+const RACE_DESC = {
+  human:'Warm tan · balanced', elf:'Pale green · tall, slender',
+  dwarf:'Ruddy bronze · short, stocky', gnome:'Pale olive · tiny, wide-eyed',
+  halfling:'Golden tan · small, cheerful', orc:'Olive green · broad, fierce',
+  troll:'Dark olive · massive', undead:'Pallid · gaunt, hollow',
+  merfolk:'Aqua tint · finned, no legs', celestial:'Luminous gold · ethereal',
+  immortal:'Divine gold · halo & aura',
+};
+const TYPICAL = {
+  human:    { cls:'warrior',    wep:'sword',  wc:'#A8A8B0', arm:null,      ter:'city'   },
+  elf:      { cls:'ranger',     wep:'bow',    wc:'#7a5a2a', arm:null,      ter:'forest' },
+  dwarf:    { cls:'berserker',  wep:'axe',    wc:'#a07040', arm:'#7B5A3A', ter:'cave'   },
+  gnome:    { cls:'wizard',     wep:'staff',  wc:'#b0a0e0', arm:null,      ter:'city'   },
+  halfling: { cls:'rogue',      wep:'dagger', wc:'#707060', arm:null,      ter:'forest' },
+  orc:      { cls:'berserker',  wep:'axe',    wc:'#808080', arm:'#5a4a3a', ter:'plains' },
+  troll:    { cls:'warrior',    wep:'mace',   wc:'#6a8a6a', arm:'#4a5a3a', ter:'plains' },
+  undead:   { cls:'necromancer',wep:'staff',  wc:'#8080a8', arm:null,      ter:'void'   },
+  merfolk:  { cls:'mage',       wep:'staff',  wc:'#60b0d0', arm:null,      ter:'ocean'  },
+  celestial:{ cls:'paladin',    wep:'sword',  wc:'#e0d060', arm:'#9a8a50', ter:'city'   },
+  immortal: { cls:'adventurer', wep:'sword',  wc:'#e0d060', arm:null,      ter:'city'   },
+};
+
+// ═══════════════════════════════════════════════════════
+// BACKGROUNDS — proper tile floors + wall textures
+// ═══════════════════════════════════════════════════════
+
+function drawBackground(ctx, W, H, ter) {
+  const floorY = Math.round(H * 0.52);
+
+  // Sky / wall area
+  const walls = {
+    city:   ['#2a2418','#332b1c'], forest:['#111e0f','#162412'],
+    plains: ['#1a2c10','#223514'], void:  ['#08091a','#0c0e22'],
+    ocean:  ['#09182e','#0d2040'], cave:  ['#151008','#1c150a'],
+  };
+  const [w1,w2] = walls[ter] || walls.void;
+  const wallGrad = ctx.createLinearGradient(0,0,0,floorY);
+  wallGrad.addColorStop(0, w1); wallGrad.addColorStop(1, w2);
+  ctx.fillStyle = wallGrad; ctx.fillRect(0,0,W,floorY);
+
+  // Wall details
+  if (ter === 'city') {
+    ctx.fillStyle = 'rgba(255,240,180,0.06)';
+    for (let y=4; y<floorY; y+=6) {
+      const off = Math.floor(y/6)%2 * 6;
+      for (let x=off-3; x<W; x+=12) ctx.fillRect(x,y,11,5);
+    }
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    for (let y=4; y<floorY; y+=6) ctx.fillRect(0,y+5,W,1);
+  } else if (ter === 'forest') {
+    // Tree silhouettes
+    ctx.fillStyle = '#0a1a08';
+    for (const [tx,tw,th] of [[5,10,20],[18,8,16],[35,12,24],[52,9,18],[65,11,22],[76,8,15]]) {
+      ctx.fillRect(tx, floorY-th, tw, th);
+      ctx.fillRect(tx+tw/2-1, floorY, 2, 6);
+    }
+  } else if (ter === 'void') {
+    ctx.strokeStyle = 'rgba(80,80,180,0.12)'; ctx.lineWidth = 1;
+    for (let y=4; y<floorY; y+=8) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+    for (let x=4; x<W; x+=8) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,floorY); ctx.stroke(); }
+  } else if (ter === 'ocean') {
+    for (let y=floorY-14; y<floorY; y+=4) {
+      ctx.fillStyle = `rgba(30,80,140,${0.2+(y-floorY+14)*0.015})`;
+      ctx.fillRect(0,y,W,3);
+    }
+  } else if (ter === 'cave') {
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    for (const [x,y,r] of [[8,5,6],[25,3,5],[48,7,7],[62,4,5],[74,6,4]]) {
+      ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+    }
+  }
+
+  // Floor transition
+  const floors = {
+    city:   ['#4a4430','#3a3424'], forest:['#1e3a14','#182e10'],
+    plains: ['#2a3e18','#223214'], void:  ['#10122a','#0e1020'],
+    ocean:  ['#0e2848','#0a1e38'], cave:  ['#24180c','#1c1208'],
+  };
+  const [f1,f2] = floors[ter] || floors.void;
+  const tileSize = 8;
+  for (let row=0; row*tileSize+floorY < H; row++) {
+    const y = floorY + row*tileSize;
+    for (let col=0; col*tileSize < W; col++) {
+      const x = col*tileSize + ((row%2)*4);
+      ctx.fillStyle = (row+col)%2===0 ? f1 : f2;
+      ctx.fillRect(x, y, tileSize-1, tileSize-1);
+    }
+  }
+  // Grout lines
+  ctx.fillStyle = 'rgba(0,0,0,0.45)';
+  for (let y=floorY; y<H; y+=tileSize) ctx.fillRect(0,y,W,1);
+
+  // Floor→wall shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.fillRect(0, floorY, W, 3);
+}
+
+// ═══════════════════════════════════════════════════════
+// CHARACTER SPRITE
+// ═══════════════════════════════════════════════════════
+
+function drawSprite(ctx, cx, ground, { race='human', bodyColor, weaponType=null, weaponColor='#aaa', armorColor=null }) {
+  const rc   = RC[race] || RC.human;
+  const hs = rc.hs, ws = rc.ws;
+  const isImmortal = race === 'immortal';
+
+  const skin  = SKIN[race]  || SKIN.human;
+  const hair  = HAIR[race]  || HAIR.human;
+  const eye   = EYE[race]   || EYE.human;
+  const body  = isImmortal ? (armorColor||'#c8a840')
+              : (armorColor || bodyColor || CLASS_BODY.adventurer);
+
+  // --- sizing ---
+  const headW  = Math.round(8*ws),   headH  = Math.round(8*hs);
+  const bodyW  = Math.round(10*ws),  bodyH  = Math.round(9*hs);
+  const neckW  = Math.round(4*ws),   neckH  = Math.round(2*hs);
+  const legW   = Math.round(3*ws),   legH   = Math.round(7*hs);
+  const bootH  = Math.round(2*hs);
+  const hairH  = Math.round(3*hs);
+
+  // --- y positions (build bottom-up) ---
+  const bootBottom = ground;
+  const legBottom  = bootBottom;
+  const legTop     = legBottom  - legH;
+  const bodyBottom = legTop     + Math.round(hs);    // slight overlap
+  const bodyTop    = bodyBottom - bodyH;
+  const neckBottom = bodyTop;
+  const neckTop    = neckBottom - neckH;
+  const headBottom = neckTop    + Math.round(hs);
+  const headTop    = headBottom - headH;
+  const hairTop    = headTop    - hairH;
+
+  // === IMMORTAL / CELESTIAL AURA ===
+  if (isImmortal) {
+    const gr = ctx.createRadialGradient(cx, neckTop, 1, cx, neckTop, 22*hs);
+    gr.addColorStop(0, 'rgba(255,212,80,0.38)');
+    gr.addColorStop(1, 'rgba(255,212,80,0)');
+    ctx.fillStyle=gr; ctx.beginPath(); ctx.arc(cx,neckTop,22*hs,0,Math.PI*2); ctx.fill();
+    // Halo ring
+    ctx.strokeStyle='rgba(255,210,80,0.92)'; ctx.lineWidth=Math.max(1,1.2*hs);
+    ctx.beginPath(); ctx.arc(cx, hairTop-4*hs, 6*hs, 0, Math.PI*2); ctx.stroke();
+  }
+  if (race==='celestial') {
+    const gr2 = ctx.createRadialGradient(cx, headTop, 1, cx, headTop, 14*hs);
+    gr2.addColorStop(0,'rgba(240,220,100,0.22)'); gr2.addColorStop(1,'rgba(240,220,100,0)');
+    ctx.fillStyle=gr2; ctx.beginPath(); ctx.arc(cx,headTop,14*hs,0,Math.PI*2); ctx.fill();
+  }
+
+  // === HAIR (behind head) ===
+  ctx.fillStyle = OL;
+  if (rc.feat.includes('hair_long')) {
+    ctx.fillRect(cx-Math.floor(headW/2)-1, hairTop-1, headW+2, hairH+3);
+    ctx.fillRect(cx-Math.floor(headW/2)-2, headTop-1, 3, headH+2);
+    ctx.fillRect(cx+Math.ceil(headW/2)-1,  headTop-1, 3, headH+2);
+    ctx.fillStyle=hair;
+    ctx.fillRect(cx-Math.floor(headW/2), hairTop, headW, hairH+2);
+    ctx.fillRect(cx-Math.floor(headW/2)-1, headTop, 2, headH);
+    ctx.fillRect(cx+Math.ceil(headW/2)-1,  headTop, 2, headH);
+  } else if (rc.feat.includes('hair_flowing')) {
+    ctx.fillRect(cx-Math.floor(headW/2)-1, hairTop-1, headW+2, hairH+2);
+    ctx.fillRect(cx-Math.floor(headW/2)-2, headTop-1, 4, Math.round(headH*0.6)+1);
+    ctx.fillRect(cx+Math.ceil(headW/2)-2,  headTop-1, 4, Math.round(headH*0.6)+1);
+    ctx.fillStyle=hair;
+    ctx.fillRect(cx-Math.floor(headW/2), hairTop, headW, hairH+1);
+    ctx.globalAlpha=0.8;
+    ctx.fillRect(cx-Math.floor(headW/2)-1, headTop, 2, Math.round(headH*0.6));
+    ctx.fillRect(cx+Math.ceil(headW/2)-1,  headTop, 2, Math.round(headH*0.6));
+    ctx.globalAlpha=1;
+  } else if (rc.feat.includes('hair_curly')) {
+    ctx.fillRect(cx-Math.floor(headW/2)+1, hairTop-1, headW-2, hairH+2);
+    ctx.fillRect(cx-Math.round(ws)-1, hairTop-2, Math.round(3*ws)+2, 3);
+    ctx.fillStyle=hair;
+    ctx.fillRect(cx-Math.floor(headW/2)+1, hairTop, headW-2, hairH+1);
+    ctx.fillRect(cx-Math.round(ws), hairTop-1, Math.round(3*ws), 2);
+  } else {
+    ctx.fillRect(cx-Math.floor(headW/2)-1, hairTop-1, headW+2, hairH+2);
+    ctx.fillStyle=hair;
+    ctx.fillRect(cx-Math.floor(headW/2), hairTop, headW, hairH+1);
+  }
+  // Hair highlight
+  ctx.fillStyle=tint(hair,0.25);
+  ctx.fillRect(cx-Math.floor(headW/2)+1, hairTop, Math.ceil(headW*0.4), 1);
+
+  // === HEAD ===
+  sRect(ctx, cx-Math.floor(headW/2), headTop, headW, headH, skin);
+
+  // === EYES ===
+  const eyeY = headTop + Math.round(3*hs);
+  if (race==='undead') {
+    sRect(ctx, cx-Math.round(2.5*ws), eyeY-Math.round(hs), Math.round(2*ws), Math.round(2*hs), '#1a0808', 0, 0);
+    sRect(ctx, cx+Math.round(0.5*ws), eyeY-Math.round(hs), Math.round(2*ws), Math.round(2*hs), '#1a0808', 0, 0);
+    ctx.fillStyle=eye;
+    ctx.fillRect(cx-Math.round(2*ws), eyeY, Math.max(1,Math.round(ws)), Math.max(1,Math.round(hs)));
+    ctx.fillRect(cx+Math.round(ws),   eyeY, Math.max(1,Math.round(ws)), Math.max(1,Math.round(hs)));
+  } else if (rc.feat.includes('big_eyes')) {
+    sRect(ctx, cx-Math.round(3*ws), eyeY, Math.round(2.5*ws), Math.round(2.5*hs), '#e8e8e8');
+    sRect(ctx, cx+Math.round(ws),   eyeY, Math.round(2.5*ws), Math.round(2.5*hs), '#e8e8e8');
+    ctx.fillStyle=eye;
+    ctx.fillRect(cx-Math.round(2*ws), eyeY+Math.round(0.5*hs), Math.round(1.5*ws), Math.round(1.5*hs));
+    ctx.fillRect(cx+Math.round(1.5*ws), eyeY+Math.round(0.5*hs), Math.round(1.5*ws), Math.round(1.5*hs));
+  } else {
+    ctx.fillStyle=OL;
+    ctx.fillRect(cx-Math.round(2.5*ws)-1, eyeY-1, Math.round(ws)+2, Math.round(hs)+2);
+    ctx.fillRect(cx+Math.round(ws)-1,     eyeY-1, Math.round(ws)+2, Math.round(hs)+2);
+    ctx.fillStyle=eye;
+    ctx.fillRect(cx-Math.round(2.5*ws), eyeY, Math.round(ws), Math.round(hs));
+    ctx.fillRect(cx+Math.round(ws),     eyeY, Math.round(ws), Math.round(hs));
+    // Catch-light
+    ctx.fillStyle='rgba(255,255,255,0.6)';
+    ctx.fillRect(cx-Math.round(2.5*ws), eyeY, 1, 1);
+    ctx.fillRect(cx+Math.round(ws),     eyeY, 1, 1);
+  }
+
+  // === RACE FEATURES ===
+
+  if (race==='elf') {
+    ctx.fillStyle=OL;
+    ctx.beginPath();
+    ctx.moveTo(cx-Math.floor(headW/2)-1, headTop+Math.round(2*hs));
+    ctx.lineTo(cx-Math.floor(headW/2)-Math.round(5*ws), headTop-Math.round(3*hs));
+    ctx.lineTo(cx-Math.floor(headW/2)-1, headTop+Math.round(5*hs));
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(cx+Math.ceil(headW/2)+1, headTop+Math.round(2*hs));
+    ctx.lineTo(cx+Math.ceil(headW/2)+Math.round(5*ws), headTop-Math.round(3*hs));
+    ctx.lineTo(cx+Math.ceil(headW/2)+1, headTop+Math.round(5*hs));
+    ctx.fill();
+    ctx.fillStyle=skin;
+    ctx.beginPath();
+    ctx.moveTo(cx-Math.floor(headW/2), headTop+Math.round(2.5*hs));
+    ctx.lineTo(cx-Math.floor(headW/2)-Math.round(4*ws), headTop-Math.round(2*hs));
+    ctx.lineTo(cx-Math.floor(headW/2), headTop+Math.round(4.5*hs));
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(cx+Math.ceil(headW/2), headTop+Math.round(2.5*hs));
+    ctx.lineTo(cx+Math.ceil(headW/2)+Math.round(4*ws), headTop-Math.round(2*hs));
+    ctx.lineTo(cx+Math.ceil(headW/2), headTop+Math.round(4.5*hs));
+    ctx.fill();
+    ctx.fillStyle=tint(skin,-0.2);
+    ctx.beginPath();
+    ctx.moveTo(cx-Math.floor(headW/2)-Math.round(4*ws), headTop-Math.round(2*hs));
+    ctx.lineTo(cx-Math.floor(headW/2), headTop+Math.round(2.5*hs));
+    ctx.lineTo(cx-Math.floor(headW/2)-Math.round(2*ws), headTop+Math.round(0.5*hs));
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(cx+Math.ceil(headW/2)+Math.round(4*ws), headTop-Math.round(2*hs));
+    ctx.lineTo(cx+Math.ceil(headW/2), headTop+Math.round(2.5*hs));
+    ctx.lineTo(cx+Math.ceil(headW/2)+Math.round(2*ws), headTop+Math.round(0.5*hs));
+    ctx.fill();
+  }
+
+  if (race==='dwarf') {
+    const beardW=Math.round(bodyW*ws), beardH=Math.round(5*hs);
+    sRect(ctx, cx-Math.floor(beardW/2), neckBottom, beardW, beardH, tint(hair,-0.1));
+    ctx.fillStyle=tint(hair,0.2);
+    ctx.fillRect(cx-Math.floor(beardW/2)+1, neckBottom+1, Math.round(beardW*0.35), Math.round(beardH*0.4));
+    ctx.fillStyle=tint(hair,-0.25);
+    for (let i=0; i<3; i++)
+      ctx.fillRect(cx-Math.floor(beardW/2)+Math.round(i*3*ws), neckBottom+Math.round(3*hs), Math.round(ws)+1, Math.round(2*hs));
+  }
+
+  if (race==='orc') {
+    sRect(ctx, cx-Math.round(2*ws), neckBottom-Math.round(hs), Math.round(1.5*ws), Math.round(4*hs), '#d8c888');
+    sRect(ctx, cx+Math.round(ws),   neckBottom-Math.round(hs), Math.round(1.5*ws), Math.round(4*hs), '#d8c888');
+    ctx.fillStyle=tint(skin,-0.3);
+    ctx.fillRect(cx-Math.floor(headW/2), headTop, headW, Math.round(2*hs));
+  }
+
+  if (race==='troll') {
+    const nkW=Math.round(6*ws), nkH=Math.round(4*hs);
+    sRect(ctx, cx-Math.floor(nkW/2), headBottom-Math.round(hs), nkW, nkH, tint(skin,-0.1));
+    ctx.fillStyle=tint(skin,-0.3);
+    ctx.fillRect(cx-Math.floor(headW/2), headTop, headW, Math.round(2.5*hs));
+    ctx.fillStyle=tint(skin,-0.15);
+    ctx.fillRect(cx-Math.round(ws), headTop+Math.round(4*hs), Math.round(ws), Math.round(hs));
+    ctx.fillRect(cx+Math.round(2*ws), headTop+Math.round(3*hs), Math.round(ws), Math.round(hs));
+  }
+
+  if (race==='undead') {
+    ctx.fillStyle=tint(skin,-0.25);
+    ctx.fillRect(cx-Math.floor(headW/2), headTop+Math.round(4*hs), Math.round(2*ws), Math.round(2*hs));
+    ctx.fillRect(cx+Math.ceil(headW/2)-Math.round(2*ws), headTop+Math.round(4*hs), Math.round(2*ws), Math.round(2*hs));
+  }
+
+  if (race==='halfling') {
+    ctx.fillStyle='rgba(220,90,70,0.22)';
+    ctx.fillRect(cx-Math.floor(headW/2)+1, headTop+Math.round(4*hs), Math.round(2*ws), Math.round(2*hs));
+    ctx.fillRect(cx+Math.ceil(headW/2)-Math.round(3*ws), headTop+Math.round(4*hs), Math.round(2*ws), Math.round(2*hs));
+  }
+
+  if (race==='merfolk') {
+    const finCol=tint(skin,-0.05);
+    ctx.fillStyle=OL;
+    ctx.fillRect(cx-Math.floor(headW/2)-Math.round(5*ws)-1, headTop+Math.round(2*hs)-1, Math.round(5*ws)+2, Math.round(3*hs)+2);
+    ctx.fillRect(cx+Math.ceil(headW/2)-1, headTop+Math.round(2*hs)-1, Math.round(5*ws)+2, Math.round(3*hs)+2);
+    ctx.fillStyle=finCol;
+    ctx.fillRect(cx-Math.floor(headW/2)-Math.round(5*ws), headTop+Math.round(2*hs), Math.round(5*ws), Math.round(3*hs));
+    ctx.fillRect(cx+Math.ceil(headW/2), headTop+Math.round(2*hs), Math.round(5*ws), Math.round(3*hs));
+    ctx.fillStyle='rgba(0,120,160,0.35)';
+    ctx.fillRect(cx-Math.floor(headW/2)-Math.round(4*ws), headTop+Math.round(3*hs), Math.round(4*ws), Math.round(hs));
+    ctx.fillRect(cx+Math.ceil(headW/2), headTop+Math.round(3*hs), Math.round(4*ws), Math.round(hs));
+  }
+
+  if (race==='gnome') {
+    ctx.fillStyle='rgba(180,140,110,0.22)';
+    ctx.fillRect(cx-Math.floor(headW/2)+1, headTop+Math.round(4.5*hs), Math.round(1.5*ws), Math.round(2*hs));
+    ctx.fillRect(cx+Math.ceil(headW/2)-Math.round(2.5*ws), headTop+Math.round(4.5*hs), Math.round(1.5*ws), Math.round(2*hs));
+  }
+
+  // === NECK ===
+  sRect(ctx, cx-Math.floor(neckW/2), neckTop, neckW, neckH, skin);
+
+  // === BODY ===
+  sRect(ctx, cx-Math.floor(bodyW/2), bodyTop, bodyW, bodyH, body);
+
+  // Body centre-line & belt
+  ctx.fillStyle=tint(body,-0.22);
+  ctx.fillRect(cx-1, bodyTop+Math.round(hs), 2, bodyH-Math.round(3*hs));
+  const beltH=Math.round(2*hs);
+  sRect(ctx, cx-Math.floor(bodyW/2), bodyBottom-beltH, bodyW, beltH, tint(body,-0.3));
+  // Belt buckle
+  sRect(ctx, cx-Math.round(ws), bodyBottom-beltH, Math.round(2*ws), beltH, '#c0a040');
+
+  // Pauldrons (shoulder plates)
+  const pW=Math.round(3*ws), pH=Math.round(4*hs);
+  sRect(ctx, cx-Math.floor(bodyW/2)-pW+Math.round(ws), bodyTop, pW, pH, tint(body,-0.12));
+  sRect(ctx, cx+Math.ceil(bodyW/2)-Math.round(ws),     bodyTop, pW, pH, tint(body,-0.12));
+  // Pauldron rivets
+  ctx.fillStyle=tint(body,0.15);
+  ctx.fillRect(cx-Math.floor(bodyW/2)-pW+Math.round(ws)+1, bodyTop+1, 1, 1);
+  ctx.fillRect(cx+Math.ceil(bodyW/2)-Math.round(ws)+1,      bodyTop+1, 1, 1);
+
+  // === LEGS or MERFOLK TAIL ===
+  if (rc.feat.includes('tail')) {
+    // Tail body
+    const tailW=Math.round(7*ws), tailH=Math.round(9*hs);
+    sRect(ctx, cx-Math.floor(tailW/2), legTop, tailW, Math.round(tailH*0.65), '#2a8a9a');
+    // Tail fin
+    sRect(ctx, cx-Math.floor(tailW/2)-Math.round(3*ws), legTop+Math.round(tailH*0.55), tailW+Math.round(6*ws), Math.round(tailH*0.38), '#1a7080');
+    ctx.fillStyle='rgba(80,200,220,0.25)';
+    ctx.fillRect(cx-Math.floor(tailW/2)+1, legTop+Math.round(2*hs), Math.round(3*ws), Math.round(2*hs));
+    ctx.fillRect(cx+Math.round(ws), legTop+Math.round(5*hs), Math.round(3*ws), Math.round(2*hs));
+  } else {
+    const gap=Math.round(ws);
+    // Pants (upper legs)
+    const pantH=legH-bootH;
+    const pantCol=tint(body,-0.18);
+    sRect(ctx, cx-legW-gap, legTop, legW, pantH, pantCol);
+    sRect(ctx, cx+gap,      legTop, legW, pantH, pantCol);
+    // Boots
+    sRect(ctx, cx-legW-gap-1, legTop+pantH-1, legW+2, bootH+1, '#3a2810');
+    sRect(ctx, cx+gap-1,       legTop+pantH-1, legW+2, bootH+1, '#3a2810');
+    // Boot highlight
+    ctx.fillStyle=tint('#3a2810',0.25);
+    ctx.fillRect(cx-legW-gap, legTop+pantH, Math.ceil(legW/2), 1);
+    ctx.fillRect(cx+gap, legTop+pantH, Math.ceil(legW/2), 1);
+  }
+
+  // === WEAPON ===
+  if (weaponType) drawWeapon(ctx, cx, bodyTop, bodyBottom, ground, weaponType, weaponColor, ws, hs);
+}
+
+// ═══════════════════════════════════════════════════════
+// WEAPONS
+// ═══════════════════════════════════════════════════════
+
+function drawWeapon(ctx, cx, bodyTop, bodyBottom, ground, wtype, col, ws, hs) {
+  const ox = cx + Math.round(9*ws);  // offset right of body
+
+  if (wtype==='sword') {
+    const bladeTop = bodyTop - Math.round(14*hs);
+    const bladeH   = Math.round(18*hs);
+    const guardY   = bodyTop + Math.round(2*hs);
+    // Blade
+    sRect(ctx, ox, bladeTop, Math.round(2*ws), bladeH, col);
+    ctx.fillStyle=tint(col,0.45);
+    ctx.fillRect(ox, bladeTop, 1, Math.round(bladeH*0.7));
+    // Guard
+    sRect(ctx, ox-Math.round(3*ws), guardY, Math.round(8*ws), Math.round(2*hs), '#8a8860');
+    // Grip
+    sRect(ctx, ox, guardY+Math.round(2*hs), Math.round(2*ws), Math.round(5*hs), '#5a3a1a');
+    // Pommel
+    sRect(ctx, ox-Math.round(ws), guardY+Math.round(7*hs), Math.round(4*ws), Math.round(2*hs), '#8a8840');
+
+  } else if (wtype==='dagger') {
+    const bladeTop = bodyTop - Math.round(4*hs);
+    sRect(ctx, ox, bladeTop, Math.round(2*ws), Math.round(10*hs), col);
+    ctx.fillStyle=tint(col,0.4); ctx.fillRect(ox, bladeTop, 1, Math.round(6*hs));
+    sRect(ctx, ox-Math.round(2*ws), bladeTop+Math.round(10*hs), Math.round(6*ws), Math.round(2*hs), '#7a7860');
+    sRect(ctx, ox, bladeTop+Math.round(12*hs), Math.round(2*ws), Math.round(4*hs), '#5a3a1a');
+
+  } else if (wtype==='staff') {
+    const poleTop = bodyTop - Math.round(20*hs);
+    const poleH   = Math.round(28*hs);
+    sRect(ctx, ox+Math.round(ws), poleTop, Math.round(2*ws), poleH, '#6a4a1a');
+    // Wrap bands
+    ctx.fillStyle=tint('#6a4a1a',0.3);
+    for (let i=0; i<3; i++)
+      ctx.fillRect(ox+Math.round(ws), poleTop+Math.round((6+i*7)*hs), Math.round(2*ws), Math.max(1,Math.round(hs)));
+    // Orb
+    const orbCol = col==='#60b0d0' ? '#60d0e8' : col==='#8080a8' ? '#9090c0' : '#b080f0';
+    sArc(ctx, ox+Math.round(2*ws), poleTop, Math.round(5*hs), orbCol);
+
+  } else if (wtype==='axe') {
+    const handleTop = bodyTop - Math.round(12*hs);
+    sRect(ctx, ox+Math.round(ws), handleTop, Math.round(2*ws), Math.round(17*hs), '#6a4a1a');
+    sRect(ctx, ox-Math.round(3*ws), handleTop, Math.round(9*ws), Math.round(8*hs), col);
+    ctx.fillStyle=tint(col,0.3);
+    ctx.fillRect(ox-Math.round(3*ws), handleTop, Math.round(9*ws), 1);
+    ctx.fillStyle=tint(col,-0.2);
+    ctx.fillRect(ox-Math.round(3*ws), handleTop+Math.round(4*hs), Math.round(4*ws), Math.round(4*hs));
+    sRect(ctx, ox+Math.round(3*ws), handleTop+Math.round(3*hs), Math.round(3*ws), Math.round(2*hs), tint(col,-0.1));
+
+  } else if (wtype==='mace') {
+    const handleTop = bodyTop - Math.round(8*hs);
+    sRect(ctx, ox+Math.round(ws), handleTop, Math.round(2*ws), Math.round(15*hs), '#5a3a1a');
+    sRect(ctx, ox-Math.round(3*ws), handleTop-Math.round(6*hs), Math.round(8*ws), Math.round(7*hs), col);
+    // Flanges
+    for (const [fx,fy] of [[-3,-2],[4,-2],[-3,1],[4,1]]) {
+      ctx.fillStyle=OL;
+      ctx.fillRect(ox+Math.round(fx*ws)-1, handleTop+Math.round(fy*hs)-1, Math.round(2*ws)+2, Math.round(2*hs)+2);
+      ctx.fillStyle=tint(col,-0.1);
+      ctx.fillRect(ox+Math.round(fx*ws), handleTop+Math.round(fy*hs), Math.round(2*ws), Math.round(2*hs));
+    }
+
+  } else if (wtype==='bow') {
+    const bowTop = bodyTop - Math.round(14*hs);
+    const limb = '#6a4a1a';
+    sRect(ctx, ox, bowTop, Math.round(2*ws), Math.round(5*hs), limb);
+    sRect(ctx, ox+Math.round(2*ws), bowTop+Math.round(4*hs), Math.round(2*ws), Math.round(16*hs), limb);
+    sRect(ctx, ox, bowTop+Math.round(19*hs), Math.round(2*ws), Math.round(5*hs), limb);
+    ctx.strokeStyle='rgba(220,200,140,0.8)'; ctx.lineWidth=Math.max(1,Math.round(ws));
+    ctx.beginPath();
+    ctx.moveTo(ox+Math.round(ws), bowTop+1);
+    ctx.lineTo(ox+Math.round(ws), bowTop+Math.round(24*hs));
+    ctx.stroke();
+    // Arrow
+    sRect(ctx, ox+Math.round(3*ws), bowTop+Math.round(8*hs), Math.round(ws), Math.round(9*hs), '#a07030');
+    sRect(ctx, ox+Math.round(2*ws), bowTop+Math.round(7*hs), Math.round(3*ws), Math.round(2*hs), '#c03030');
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// CARD FACTORY
+// ═══════════════════════════════════════════════════════
+
+const ZOOM = 3;
+const CW = 78, CH = 90;
+
+function card(parent, race, clsLabel, wepLabel, drawFn) {
+  const div = document.createElement('div'); div.className='card';
+  const cv  = document.createElement('canvas');
+  cv.width=CW; cv.height=CH;
+  cv.style.width=CW*ZOOM+'px'; cv.style.height=CH*ZOOM+'px';
+  div.appendChild(cv);
+  const ctx=cv.getContext('2d'); ctx.imageSmoothingEnabled=false;
+  drawFn(ctx, CW, CH);
+
+  const nm=document.createElement('div'); nm.className='rname';
+  nm.innerHTML=`<span class="swatch" style="background:${SKIN[race]||'#888'}"></span>${race}`;
+  div.appendChild(nm);
+  const ds=document.createElement('div'); ds.className='sub';
+  ds.textContent=RACE_DESC[race]||'';
+  div.appendChild(ds);
+  if (clsLabel||wepLabel) {
+    const cl=document.createElement('div'); cl.className='cls';
+    cl.textContent=[clsLabel,wepLabel].filter(Boolean).join(' · ');
+    div.appendChild(cl);
+  }
+  parent.appendChild(div);
+}
+
+function spriteFull(ctx, W, H, race, opts) {
+  const t = TYPICAL[race]||{};
+  const o = { ter:'plains', cls:'adventurer', wep:null, wc:'#aaa', arm:null, ...t, ...opts };
+  drawBackground(ctx, W, H, o.ter);
+  drawSprite(ctx, W/2 + (o.wep?-5:0), H-8, {
+    race,
+    bodyColor:   CLASS_BODY[o.cls]||CLASS_BODY.adventurer,
+    weaponType:  o.wep,
+    weaponColor: o.wc,
+    armorColor:  o.arm,
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// BUILD
+// ═══════════════════════════════════════════════════════
+const RACES = Object.keys(RC);
+const B=document.getElementById('bare'), C=document.getElementById('classed'),
+      I=document.getElementById('immortal'), X=document.getElementById('compare');
+
+RACES.forEach(r => card(B, r, null, null, (ctx,W,H) => spriteFull(ctx,W,H,r,{wep:null,arm:null,cls:'adventurer'})));
+
+RACES.forEach(r => {
+  const t=TYPICAL[r]||{};
+  card(C, r, t.cls, t.wep, (ctx,W,H) => spriteFull(ctx,W,H,r,{}));
+});
+
+[
+  {wep:null,    wc:'',        arm:null,      ter:'city',   lbl:'bare'},
+  {wep:'sword', wc:'#A8A8B0', arm:null,      ter:'city',   lbl:'iron sword'},
+  {wep:'staff', wc:'#a0c0ff', arm:null,      ter:'void',   lbl:'staff'},
+  {wep:'axe',   wc:'#c8a040', arm:null,      ter:'plains', lbl:'axe'},
+  {wep:'sword', wc:'#A8A8B0', arm:'#7B5A3A', ter:'city',   lbl:'leather armour'},
+  {wep:'staff', wc:'#9060d0', arm:'#6B4FA0', ter:'void',   lbl:'cloth robe + staff'},
+].forEach(v => card(I, 'immortal', 'admin/developer', v.lbl,
+  (ctx,W,H) => spriteFull(ctx,W,H,'immortal',{wep:v.wep,wc:v.wc,arm:v.arm,ter:v.ter,cls:'adventurer'})));
+
+RACES.forEach(r => card(X, r, 'warrior', 'iron sword',
+  (ctx,W,H) => spriteFull(ctx,W,H,r,{wep:'sword',wc:'#A8A8B0',arm:null,cls:'warrior'})));
+</script>
+</body>
+</html>

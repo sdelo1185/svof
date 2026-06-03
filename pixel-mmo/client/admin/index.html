@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin — World Builder</title>
+  <style>
+    :root {
+      --bg: #0d0f1a; --surface: #161929; --border: #2a3050;
+      --accent: #7c6af7; --accent2: #f7a26a;
+      --text: #d4d8f0; --muted: #6b7099;
+      --success: #4caf80; --warn: #f7c86a; --danger: #f76a6a;
+    }
+    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Share+Tech+Mono&display=swap');
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: 'Share Tech Mono', monospace; font-size: 13px; }
+
+    header { background: var(--surface); border-bottom: 2px solid var(--danger); padding: 1rem 2rem; display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap; }
+    header h1 { font-family: 'Press Start 2P', monospace; font-size: 10px; color: var(--danger); }
+
+    #authForm { display: flex; gap: 0.5rem; align-items: center; }
+    #authForm input { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 0.4rem 0.6rem; font-family: 'Share Tech Mono', monospace; font-size: 12px; border-radius: 3px; width: 200px; }
+
+    .btn { padding: 0.45rem 1rem; border: none; border-radius: 3px; cursor: pointer; font-family: 'Press Start 2P', monospace; font-size: 8px; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-accent { background: var(--accent); color: #fff; }
+    .btn-success { background: var(--success); color: #fff; }
+    .btn-warn { background: var(--warn); color: #000; }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-muted { background: var(--border); color: var(--text); }
+
+    .main { max-width: 1400px; margin: 1.5rem auto; padding: 0 1.5rem; }
+
+    .stats-row { display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+    .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 1rem 1.5rem; min-width: 130px; }
+    .stat-card .n { font-family: 'Press Start 2P', monospace; font-size: 18px; color: var(--accent2); }
+    .stat-card .label { color: var(--muted); font-size: 11px; margin-top: 0.3rem; }
+
+    .filter-row { display: flex; gap: 0.75rem; margin-bottom: 1rem; flex-wrap: wrap; }
+    select { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 0.4rem 0.6rem; border-radius: 3px; font-family: 'Share Tech Mono', monospace; font-size: 12px; }
+
+    .submission-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 1rem; }
+
+    .sub-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+      display: flex; flex-direction: column;
+    }
+    .sub-card.pending { border-left: 3px solid var(--warn); }
+    .sub-card.approved { border-left: 3px solid var(--success); }
+    .sub-card.rejected { border-left: 3px solid var(--danger); }
+    .sub-card.revision { border-left: 3px solid var(--accent); }
+
+    .sub-header { padding: 0.75rem 1rem; background: #0d0f1a55; display: flex; justify-content: space-between; align-items: center; }
+    .sub-type { font-family: 'Press Start 2P', monospace; font-size: 8px; color: var(--accent2); }
+    .sub-status { font-size: 10px; padding: 0.2rem 0.5rem; border-radius: 2px; }
+    .sub-status.pending { background: #3a3010; color: var(--warn); }
+    .sub-status.approved { background: #103a20; color: var(--success); }
+    .sub-status.rejected { background: #3a1010; color: var(--danger); }
+    .sub-status.revision { background: #1a103a; color: var(--accent); }
+
+    .sub-body { padding: 1rem; flex: 1; }
+    .sub-creator { color: var(--accent); font-size: 12px; margin-bottom: 0.4rem; }
+    .sub-name { font-family: 'Press Start 2P', monospace; font-size: 9px; margin-bottom: 0.5rem; color: var(--text); }
+    .sub-desc { color: var(--muted); font-size: 11px; line-height: 1.5; margin-bottom: 0.75rem; max-height: 80px; overflow: hidden; }
+
+    .attr-mini { font-size: 11px; display: flex; flex-wrap: wrap; gap: 0.3rem; margin-bottom: 0.75rem; }
+    .attr-chip { background: var(--bg); border: 1px solid var(--border); border-radius: 2px; padding: 0.15rem 0.4rem; }
+
+    .sub-img { width: 80px; height: 80px; object-fit: contain; image-rendering: pixelated; border: 1px solid var(--border); border-radius: 3px; float: right; margin: 0 0 0.5rem 0.5rem; background: var(--bg); }
+
+    .sub-actions { padding: 0.75rem 1rem; border-top: 1px solid var(--border); display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+    .notes-input { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 0.4rem 0.5rem; border-radius: 3px; font-family: 'Share Tech Mono', monospace; font-size: 11px; margin-bottom: 0.5rem; resize: vertical; }
+
+    .region-input { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 0.4rem 0.5rem; border-radius: 3px; font-family: 'Share Tech Mono', monospace; font-size: 11px; margin-bottom: 0.5rem; }
+
+    .spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #loading { text-align: center; padding: 3rem; color: var(--muted); }
+    #noResults { text-align: center; padding: 3rem; color: var(--muted); display: none; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ADMIN PANEL</h1>
+    <div id="authForm">
+      <input type="password" id="tokenInput" placeholder="Admin token..." />
+      <button class="btn btn-accent" onclick="loadDashboard()">CONNECT</button>
+    </div>
+    <div id="statsRow" class="stats-row" style="display:none"></div>
+  </header>
+
+  <div class="main" id="mainContent" style="display:none">
+    <div class="filter-row">
+      <select id="filterStatus" onchange="loadSubmissions()">
+        <option value="pending">Pending</option>
+        <option value="approved">Approved</option>
+        <option value="rejected">Rejected</option>
+        <option value="revision">Needs Revision</option>
+      </select>
+      <select id="filterType" onchange="loadSubmissions()">
+        <option value="">All types</option>
+        <option value="weapon">Weapon</option>
+        <option value="armor">Armor</option>
+        <option value="clothing">Clothing</option>
+        <option value="room">Room</option>
+        <option value="consumable">Consumable</option>
+        <option value="tool">Tool</option>
+        <option value="furniture">Furniture</option>
+      </select>
+      <button class="btn btn-muted" onclick="loadSubmissions()">↺ REFRESH</button>
+    </div>
+
+    <div id="loading"><span class="spinner"></span> Loading...</div>
+    <div id="noResults">No submissions found.</div>
+    <div class="submission-grid" id="subGrid"></div>
+  </div>
+
+  <script>
+    let ADMIN_TOKEN = '';
+    const API = '';
+
+    async function apiFetch(path, opts = {}) {
+      const res = await fetch(API + path, {
+        ...opts,
+        headers: { 'Content-Type': 'application/json', 'x-admin-token': ADMIN_TOKEN, ...(opts.headers || {}) },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Server error');
+      return data;
+    }
+
+    async function loadDashboard() {
+      ADMIN_TOKEN = document.getElementById('tokenInput').value.trim();
+      if (!ADMIN_TOKEN) return;
+      try {
+        const stats = await apiFetch('/api/admin/stats');
+        renderStats(stats);
+        document.getElementById('statsRow').style.display = 'flex';
+        document.getElementById('mainContent').style.display = 'block';
+        loadSubmissions();
+      } catch (e) {
+        alert('Auth failed: ' + e.message);
+      }
+    }
+
+    function renderStats(stats) {
+      const row = document.getElementById('statsRow');
+      row.innerHTML = `
+        <div class="stat-card"><div class="n" style="color:var(--warn)">${stats.pending}</div><div class="label">PENDING</div></div>
+        <div class="stat-card"><div class="n" style="color:var(--success)">${stats.approved}</div><div class="label">APPROVED</div></div>
+        <div class="stat-card"><div class="n" style="color:var(--danger)">${stats.rejected}</div><div class="label">REJECTED</div></div>
+        <div class="stat-card"><div class="n">${stats.committed}</div><div class="label">IN WORLD</div></div>
+      `;
+    }
+
+    async function loadSubmissions() {
+      const status = document.getElementById('filterStatus').value;
+      const type = document.getElementById('filterType').value;
+      const grid = document.getElementById('subGrid');
+      const loading = document.getElementById('loading');
+      const noResults = document.getElementById('noResults');
+
+      grid.innerHTML = '';
+      loading.style.display = 'block';
+      noResults.style.display = 'none';
+
+      try {
+        let url = `/api/admin/submissions?status=${status}&limit=40`;
+        if (type) url += `&type=${type}`;
+        const subs = await apiFetch(url);
+        loading.style.display = 'none';
+
+        if (!subs.length) { noResults.style.display = 'block'; return; }
+        subs.forEach(s => grid.appendChild(renderCard(s)));
+      } catch (e) {
+        loading.innerHTML = `<span style="color:var(--danger)">Error: ${e.message}</span>`;
+      }
+    }
+
+    function renderCard(s) {
+      const el = document.createElement('div');
+      el.className = `sub-card ${s.status}`;
+      el.id = `card-${s.id}`;
+
+      const attrs = typeof s.attributes === 'string' ? JSON.parse(s.attributes) : s.attributes;
+      const name = attrs.name || '(unnamed)';
+      const chips = Object.entries(attrs)
+        .filter(([k]) => ['damage_type','weapon_type','slot','terrain_type','rarity','weight_class','effect_type','tool_type','furniture_type','cultural_origin'].includes(k))
+        .slice(0, 4)
+        .map(([, v]) => `<span class="attr-chip">${v}</span>`)
+        .join('');
+
+      const isPending = s.status === 'pending';
+      const imgHtml = s.image_url ? `<img class="sub-img" src="${s.image_url}" alt="" />` : '';
+
+      el.innerHTML = `
+        <div class="sub-header">
+          <span class="sub-type">${s.type.toUpperCase()}</span>
+          <span class="sub-status ${s.status}">${s.status.toUpperCase()}</span>
+        </div>
+        <div class="sub-body">
+          ${imgHtml}
+          <div class="sub-creator">by ${s.creator_name}</div>
+          <div class="sub-name">${name}</div>
+          <div class="sub-desc">${s.description}</div>
+          <div class="attr-mini">${chips}</div>
+          ${s.lore_notes ? `<div style="font-size:11px;color:var(--muted);font-style:italic;margin-bottom:0.5rem">Notes: ${s.lore_notes}</div>` : ''}
+          ${s.admin_notes ? `<div style="font-size:11px;color:var(--warn);margin-bottom:0.5rem">⚠ ${s.admin_notes}</div>` : ''}
+          <div style="font-size:10px;color:var(--muted)">ID: ${s.id.slice(0,8)}… • ${new Date(s.created_at).toLocaleString()}</div>
+        </div>
+        ${isPending ? `
+        <div class="sub-actions" id="actions-${s.id}">
+          <input class="region-input" id="region-${s.id}" placeholder="Assign region (optional)..." />
+          <textarea class="notes-input" id="notes-${s.id}" rows="2" placeholder="Admin notes..."></textarea>
+          <button class="btn btn-success" onclick="approve('${s.id}')">✓ APPROVE</button>
+          <button class="btn btn-warn" onclick="revise('${s.id}')">↺ REVISE</button>
+          <button class="btn btn-danger" onclick="reject('${s.id}')">✕ REJECT</button>
+        </div>` : ''}
+      `;
+      return el;
+    }
+
+    async function approve(id) {
+      const notes = document.getElementById(`notes-${id}`)?.value.trim();
+      const region = document.getElementById(`region-${id}`)?.value.trim();
+      try {
+        await apiFetch(`/api/admin/submissions/${id}/approve`, {
+          method: 'POST',
+          body: JSON.stringify({ admin_id: 'admin', admin_notes: notes || null, region: region || null }),
+        });
+        markDone(id, 'approved');
+        loadDashboard();
+      } catch (e) { alert(e.message); }
+    }
+
+    async function reject(id) {
+      const notes = document.getElementById(`notes-${id}`)?.value.trim();
+      try {
+        await apiFetch(`/api/admin/submissions/${id}/reject`, {
+          method: 'POST',
+          body: JSON.stringify({ admin_id: 'admin', admin_notes: notes || null }),
+        });
+        markDone(id, 'rejected');
+        loadDashboard();
+      } catch (e) { alert(e.message); }
+    }
+
+    async function revise(id) {
+      const notes = document.getElementById(`notes-${id}`)?.value.trim();
+      if (!notes) { alert('Add revision notes before requesting changes.'); return; }
+      try {
+        await apiFetch(`/api/admin/submissions/${id}/revision`, {
+          method: 'POST',
+          body: JSON.stringify({ admin_id: 'admin', admin_notes: notes }),
+        });
+        markDone(id, 'revision');
+      } catch (e) { alert(e.message); }
+    }
+
+    function markDone(id, newStatus) {
+      const card = document.getElementById(`card-${id}`);
+      if (!card) return;
+      card.className = `sub-card ${newStatus}`;
+      const badge = card.querySelector('.sub-status');
+      if (badge) { badge.className = `sub-status ${newStatus}`; badge.textContent = newStatus.toUpperCase(); }
+      const actions = document.getElementById(`actions-${id}`);
+      if (actions) actions.remove();
+    }
+
+    // Allow Enter in token field
+    document.getElementById('tokenInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') loadDashboard();
+    });
+  </script>
+</body>
+</html>

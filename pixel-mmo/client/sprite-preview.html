@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pixel MMO – Sprite Preview</title>
+<style>
+  * { box-sizing:border-box; }
+  body { background:#0d0d18; margin:0; font-family:'Courier New',monospace; color:#ccd; }
+  h1 { text-align:center; color:#aef; letter-spacing:2px; margin:18px 0 4px; font-size:1.1em; }
+  #controls { text-align:center; margin-bottom:14px; padding:0 8px; }
+  select, button {
+    background:#1a1d2e; color:#ccd; border:1px solid #445; padding:8px 12px;
+    border-radius:4px; cursor:pointer; font-family:inherit; font-size:.85em; margin:3px;
+    min-height:36px;
+  }
+  select:focus, button:hover { border-color:#8af; outline:none; }
+  #grid {
+    display:grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(380px, 100%), 1fr));
+    gap:12px; padding:0 10px 30px;
+  }
+  .card {
+    background:#13152a; border:1px solid #2a2d45; border-radius:8px;
+    padding:10px 8px 8px; text-align:center;
+  }
+  .card .sprites { display:flex; gap:6px; justify-content:center; margin-bottom:5px; }
+  .card .sprite-col { display:flex; flex-direction:column; align-items:center; gap:3px; flex:1; }
+  .card canvas {
+    display:block; image-rendering:pixelated; image-rendering:crisp-edges;
+    width:100%; max-width:192px; height:auto; aspect-ratio:96/160;
+  }
+  .card .glabel { font-size:.68em; color:#778; }
+  .card .label { font-size:.75em; color:#99b; text-transform:capitalize; margin-bottom:1px; }
+  .card .sublabel { font-size:.63em; color:#557; }
+</style>
+</head>
+<body>
+<h1>⚔ PIXEL MMO – SPRITE PREVIEW ⚔</h1>
+<div id="controls">
+  <label>Terrain:
+    <select id="selTerrain">
+      <option value="plains">Plains</option>
+      <option value="forest">Forest</option>
+      <option value="dungeon">Dungeon</option>
+      <option value="cave">Cave</option>
+      <option value="void" selected>Void</option>
+    </select>
+  </label>
+  &nbsp;
+  <label>Class:
+    <select id="selClass">
+      <option value="warrior">Warrior</option>
+      <option value="mage">Mage</option>
+      <option value="rogue">Rogue</option>
+      <option value="ranger">Ranger</option>
+      <option value="cleric">Cleric</option>
+      <option value="monk">Monk</option>
+    </select>
+  </label>
+  &nbsp;
+  <button onclick="renderAll()">Refresh</button>
+</div>
+<div id="grid"></div>
+
+<script>
+// ── Canvas config ────────────────────────────────────────────
+const CW = 96, CH = 160, ZOOM = 1;
+
+// ── Color math ───────────────────────────────────────────────
+function hexRGB(h){h=h.replace('#','');return[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
+function rgbHex(r,g,b){return'#'+[r,g,b].map(v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join('');}
+function rgbToHsl(r,g,b){r/=255;g/=255;b/=255;const mx=Math.max(r,g,b),mn=Math.min(r,g,b),d=mx-mn;let h=0,s=0,l=(mx+mn)/2;if(d){s=l>0.5?d/(2-mx-mn):d/(mx+mn);if(mx===r)h=((g-b)/d+(g<b?6:0))/6;else if(mx===g)h=((b-r)/d+2)/6;else h=((r-g)/d+4)/6;}return[h,s,l];}
+function hslToRgb(h,s,l){if(!s){const v=Math.round(l*255);return[v,v,v];}const q=l<0.5?l*(1+s):l+s-l*s,p=2*l-q,f=(p,q,t)=>{t=(t%1+1)%1;if(t<1/6)return p+(q-p)*6*t;if(t<1/2)return q;if(t<2/3)return p+(q-p)*(2/3-t)*6;return p;};return[f(p,q,h+1/3),f(p,q,h),f(p,q,h-1/3)].map(v=>Math.round(v*255));}
+function tint(hex,a){let[r,g,b]=hexRGB(hex);let[h,s,l]=rgbToHsl(r,g,b);l=Math.max(0,Math.min(1,l+a*0.52));h=(h+a*0.035+1)%1;s=Math.max(0,Math.min(1,s+Math.abs(a)*0.06));return rgbHex(...hslToRgb(h,s,l));}
+function mix(a,b,t){const[r1,g1,b1]=hexRGB(a),[r2,g2,b2]=hexRGB(b);return rgbHex(r1+(r2-r1)*t,g1+(g2-g1)*t,b1+(b2-b1)*t);}
+function alpha(hex,a){const[r,g,b]=hexRGB(hex);return`rgba(${r},${g},${b},${a})`;}
+
+// 5-step ramp: [deep shadow, shadow, base, highlight, bright]
+function ramp(hex){return[tint(hex,-0.40),tint(hex,-0.22),hex,tint(hex,+0.20),tint(hex,+0.40)];}
+
+// ── Drawing helpers ───────────────────────────────────────────
+// Vertical gradient fill
+function vGrad(ctx,x,y,w,h,c1,c2,steps=10){
+  for(let i=0;i<steps;i++){
+    const t=i/(steps-1);
+    ctx.fillStyle=mix(c1,c2,t);
+    const sy=Math.round(y+h*i/steps), ey=Math.round(y+h*(i+1)/steps);
+    ctx.fillRect(x,sy,w,ey-sy);
+  }
+}
+// Horizontal gradient fill
+function hGrad(ctx,x,y,w,h,c1,c2,steps=10){
+  for(let i=0;i<steps;i++){
+    const t=i/(steps-1);
+    ctx.fillStyle=mix(c1,c2,t);
+    const sx=Math.round(x+w*i/steps), ex=Math.round(x+w*(i+1)/steps);
+    ctx.fillRect(sx,y,ex-sx,h);
+  }
+}
+// Shaded block: base fill + left-lit, right-shadowed, top-lit, bottom-shadowed
+function sBlock(ctx,x,y,w,h,col,{hi=0.18,sh=0.16,outline=true,ol=null}={}){
+  const r=ramp(col);
+  ctx.fillStyle=col; ctx.fillRect(x,y,w,h);
+  // left highlight band
+  const hlW=Math.max(2,Math.round(w*0.25));
+  hGrad(ctx,x+1,y+1,hlW,h-2,r[3],col,4);
+  // right shadow band
+  const shW=Math.max(2,Math.round(w*0.28));
+  hGrad(ctx,x+w-shW-1,y+1,shW,h-2,col,r[1],4);
+  // top lit strip
+  vGrad(ctx,x+hlW,y+1,w-hlW-shW,Math.max(2,Math.round(h*0.18)),r[3],col,3);
+  // bottom shadow strip
+  const botH=Math.max(2,Math.round(h*0.2));
+  vGrad(ctx,x+hlW,y+h-botH,w-hlW-shW,botH,col,r[1],3);
+  // silhouette outline
+  if(outline){
+    const olc=ol||r[0];
+    ctx.fillStyle=olc;
+    ctx.fillRect(x,y,w,1);ctx.fillRect(x,y+h-1,w,1);
+    ctx.fillRect(x,y,1,h);ctx.fillRect(x+w-1,y,1,h);
+  }
+}
+// Shaded arc (hemisphere highlight)
+function sCircle(ctx,cx,cy,r,col){
+  const rm=ramp(col);
+  ctx.fillStyle=rm[0]; ctx.beginPath();ctx.arc(cx,cy,r+1,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle=col; ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fill();
+  // left-top highlight
+  const hr=Math.max(1,Math.round(r*0.55));
+  const hx=cx-Math.round(r*0.25),hy=cy-Math.round(r*0.25);
+  ctx.fillStyle=rm[3]; ctx.beginPath();ctx.arc(hx,hy,hr,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle=rm[4]; ctx.beginPath();ctx.arc(hx-1,hy-1,Math.max(1,Math.round(hr*0.45)),0,Math.PI*2);ctx.fill();
+}
+// Ambient occlusion strip
+function ao(ctx,x,y,w){ctx.fillStyle='rgba(0,0,0,0.35)';ctx.fillRect(x,y,w,1);}
+// 2px dithered edge between two colors (for smooth transitions)
+function ditherEdge(ctx,x,y,w,c1,c2){
+  for(let i=0;i<w;i++){ctx.fillStyle=i%2===0?c1:c2;ctx.fillRect(x+i,y,1,1);}
+}
+
+// ── Race data ────────────────────────────────────────────────
+const RACES={
+  human:    {skin:'#d4a574',hair:'#5c3a1e',eye:'#4a6fa5',lips:'#c07060',
+             headW:22,headH:20,neckW:9,build:'normal'},
+  elf:      {skin:'#d8e8c0',hair:'#b8d840',eye:'#30b860',lips:'#a89080',
+             headW:20,headH:21,neckW:8,build:'slender',ears:'pointed'},
+  dwarf:    {skin:'#c49060',hair:'#7a3a10',eye:'#8b6010',lips:'#b07060',
+             headW:26,headH:18,neckW:12,build:'stocky',beard:true},
+  gnome:    {skin:'#e8d0a0',hair:'#e07820',eye:'#8020c0',lips:'#c08070',
+             headW:24,headH:22,neckW:8,build:'small',bigEyes:true},
+  halfling: {skin:'#e0b888',hair:'#b07838',eye:'#704828',lips:'#c87868',
+             headW:22,headH:20,neckW:8,build:'small',rosy:true},
+  orc:      {skin:'#5a9840',hair:'#283818',eye:'#d04010',lips:'#507030',
+             headW:26,headH:20,neckW:12,build:'heavy',tusks:true,browRidge:true},
+  troll:    {skin:'#3a7050',hair:'#202818',eye:'#707000',lips:'#3a5a40',
+             headW:28,headH:20,neckW:14,build:'huge',thickBrow:true},
+  undead:   {skin:'#a8b098',hair:'#383840',eye:'#e03010',lips:'#604040',
+             headW:22,headH:20,neckW:8,build:'gaunt',hollowEyes:true,sunkenCheeks:true},
+  merfolk:  {skin:'#60c8c8',hair:'#00b0b0',eye:'#0060e0',lips:'#40a0b0',
+             headW:22,headH:20,neckW:9,build:'slender',finEars:true,tail:true},
+  celestial:{skin:'#ece0ff',hair:'#d0b8ff',eye:'#a070ff',lips:'#c090c0',
+             headW:22,headH:20,neckW:9,build:'slender',glow:true},
+  immortal: {skin:'#fff4e0',hair:'#ffd040',eye:'#ffa000',lips:'#e09060',
+             headW:22,headH:20,neckW:9,build:'normal',halo:true,aura:true},
+  xoran:    {skin:'#708858',hair:'#304020',eye:'#c89018',lips:'#506038',
+             headW:24,headH:20,neckW:10,build:'normal',scales:true,crest:true,slitPupil:true},
+  mhun:     {skin:'#c0b8b0',hair:'#403838',eye:'#c0b8d8',lips:'#a07868',
+             headW:22,headH:20,neckW:9,build:'normal',largeEyes:true},
+  grook:    {skin:'#50b060',hair:'#205028',eye:'#d0d000',lips:'#408048',
+             headW:26,headH:18,neckW:10,build:'stocky',frogFace:true,wideEyes:true},
+  sylvari:  {skin:'#88c068',hair:'#58d848',eye:'#28c858',lips:'#70a858',
+             headW:22,headH:20,neckW:9,build:'slender',leafEars:true,leafMark:true},
+};
+
+// ── Class config ─────────────────────────────────────────────
+const CLASSES={
+  warrior:{weapon:'sword',  armor:'plate', col:'#7888a0',legCol:'#506070'},
+  mage:   {weapon:'staff',  armor:'robe',  col:'#503080',legCol:'#382060'},
+  rogue:  {weapon:'dagger', armor:'leather',col:'#303838',legCol:'#282e2e'},
+  ranger: {weapon:'bow',    armor:'leather',col:'#486038',legCol:'#344428'},
+  cleric: {weapon:'mace',   armor:'chain', col:'#a09040',legCol:'#706828'},
+  monk:   {weapon:'none',   armor:'cloth', col:'#703030',legCol:'#502020'},
+};
+
+// ── Terrain backgrounds ──────────────────────────────────────
+function drawBackground(ctx,W,H,ter){
+  // Sky
+  const skies={
+    plains:['#4a80e0','#1a4090'],forest:['#1a4820','#0a2010'],
+    dungeon:['#180c20','#0c0610'],cave:['#0c0818','#060410'],void:['#060410','#02020a'],
+  };
+  const [s1,s2]=skies[ter]||skies.void;
+  vGrad(ctx,0,0,W,Math.round(H*0.62),s1,s2,14);
+
+  const flY=Math.round(H*0.62);
+
+  if(ter==='plains'){
+    // distant hills
+    ctx.fillStyle='#2a5818'; ctx.beginPath();ctx.ellipse(W*0.18,flY,W*0.28,18,0,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#1e4212'; ctx.beginPath();ctx.ellipse(W*0.8,flY,W*0.22,13,0,0,Math.PI*2);ctx.fill();
+    // sun
+    const sunG=ctx.createRadialGradient(W*0.84,H*0.1,0,W*0.84,H*0.1,10);
+    sunG.addColorStop(0,'#fff8c0');sunG.addColorStop(0.6,'#ffe060');sunG.addColorStop(1,'rgba(255,200,0,0)');
+    ctx.fillStyle=sunG;ctx.fillRect(0,0,W,flY);
+    // clouds
+    ctx.fillStyle='rgba(255,255,255,0.5)';
+    ctx.beginPath();ctx.ellipse(W*0.25,H*0.15,12,5,0,0,Math.PI*2);ctx.fill();
+    ctx.beginPath();ctx.ellipse(W*0.34,H*0.14,9,5,0,0,Math.PI*2);ctx.fill();
+  } else if(ter==='forest'){
+    // tree silhouettes (layered)
+    [[W*0.05,flY-8,20,28,'#0a1e08'],[W*0.88,flY-6,16,24,'#081808'],
+     [W*0.5,flY-12,24,34,'#10280c'],[W*0.28,flY-5,14,20,'#0c2008']].forEach(([tx,ty,tw,th,col])=>{
+      ctx.fillStyle=col;ctx.beginPath();
+      ctx.moveTo(tx,ty+th);ctx.lineTo(tx-tw/2,ty+th);ctx.lineTo(tx,ty);ctx.lineTo(tx+tw/2,ty+th);
+      ctx.closePath();ctx.fill();
+    });
+    // light shaft
+    ctx.fillStyle='rgba(180,255,120,0.05)';
+    ctx.beginPath();ctx.moveTo(W*0.5-4,0);ctx.lineTo(W*0.5+4,0);ctx.lineTo(W*0.5+14,flY);ctx.lineTo(W*0.5-14,flY);ctx.closePath();ctx.fill();
+  } else if(ter==='dungeon'){
+    ctx.fillStyle='#161020';ctx.fillRect(0,0,W,flY);
+    // stone blocks
+    for(let row=0;row<7;row++){
+      const offset=row%2===0?0:8;
+      for(let col=0;col<8;col++){
+        const bx=col*14+offset-7,by=row*9+1;
+        ctx.strokeStyle='rgba(60,45,80,0.7)';ctx.lineWidth=0.8;
+        ctx.strokeRect(bx+0.5,by+0.5,12,7);
+        ctx.fillStyle='rgba(255,200,100,0.02)';ctx.fillRect(bx+1,by+1,11,6);
+      }
+    }
+    // torch glow
+    const tg=ctx.createRadialGradient(W*0.82,flY-10,0,W*0.82,flY-10,20);
+    tg.addColorStop(0,'rgba(255,150,30,0.40)');tg.addColorStop(1,'rgba(255,80,0,0)');
+    ctx.fillStyle=tg;ctx.fillRect(0,0,W,flY);
+    ctx.fillStyle='#ff9020';ctx.fillRect(Math.round(W*0.82)-1,flY-13,3,5);
+  } else if(ter==='cave'){
+    ctx.fillStyle='#0e0a18';ctx.fillRect(0,0,W,flY);
+    // stalactites
+    ctx.fillStyle='#1e1830';
+    [[5,0,7,18],[20,0,5,12],[35,0,8,22],[50,0,6,15],[65,0,9,20],[80,0,5,10]].forEach(([sx,sy,sw,sd])=>{
+      ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(sx+sw,sy);ctx.lineTo(sx+sw/2,sy+sd);ctx.closePath();ctx.fill();
+    });
+    // crystal glow
+    const cg=ctx.createRadialGradient(W*0.15,flY-6,0,W*0.15,flY-6,14);
+    cg.addColorStop(0,'rgba(60,140,255,0.38)');cg.addColorStop(1,'rgba(20,60,200,0)');
+    ctx.fillStyle=cg;ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#50a0ff';ctx.fillRect(Math.round(W*0.15)-1,flY-10,3,10);
+  } else {
+    // void – stars + nebula
+    ctx.fillStyle='#04020c';ctx.fillRect(0,0,W,H);
+    [[10,7],[22,14],[38,5],[52,19],[68,9],[80,22],[14,28],[46,26],[84,4],[30,18]].forEach(([sx,sy])=>{
+      const a=0.4+Math.random()*0.5;
+      ctx.fillStyle=`rgba(200,210,255,${a.toFixed(2)})`;ctx.fillRect(sx,sy,1,1);
+    });
+    // nebula tint
+    const nb=ctx.createRadialGradient(W*0.3,flY*0.4,0,W*0.3,flY*0.4,30);
+    nb.addColorStop(0,'rgba(80,30,160,0.15)');nb.addColorStop(1,'rgba(40,10,100,0)');
+    ctx.fillStyle=nb;ctx.fillRect(0,0,W,flY);
+  }
+
+  // Floor
+  const floorCols={plains:['#3a5c1c','#2a4412'],forest:['#243a10','#182a08'],
+    dungeon:['#201828','#181020'],cave:['#14102a','#0c0818'],void:['#0c0820','#060412']};
+  const[fc1,fc2]=floorCols[ter]||['#0a0a14','#060610'];
+  vGrad(ctx,0,flY,W,H-flY,fc1,fc2,10);
+  // tile lines
+  ctx.strokeStyle='rgba(0,0,0,0.25)';ctx.lineWidth=0.5;
+  for(let gy=flY;gy<H;gy+=8){ctx.beginPath();ctx.moveTo(0,gy);ctx.lineTo(W,gy);ctx.stroke();}
+  for(let gx=0;gx<W;gx+=8){ctx.beginPath();ctx.moveTo(gx,flY);ctx.lineTo(gx,H);ctx.stroke();}
+}
+
+// ── Main sprite draw ─────────────────────────────────────────
+function drawSprite(ctx,cx,ground,opts){
+  const{skin,hair,eye,lips,headW=22,headH=20,neckW=9,build='normal',
+        raceData={},gender='male',bodyCol='#708090',legCol='#506070',armor='plate'}=opts;
+  const isFemale=gender==='female';
+  const isSmall=build==='small';
+  const isStocky=build==='stocky'||build==='huge';
+  const isSlender=build==='slender';
+
+  // Scale factor for small races
+  const sc=isSmall?0.85:1;
+
+  // ── Layout (bottom-anchored) ───────────────────────────────
+  const bootH   =Math.round(14*sc);
+  const shinH   =Math.round(20*sc);
+  const thighH  =Math.round(24*sc);
+  const hipH    =Math.round(10*sc);
+  const torsoH  =Math.round(isStocky?38*sc:34*sc);
+  const neckH   =Math.round(isStocky?6*sc:8*sc);
+
+  const bootTop  =ground-bootH;
+  const shinTop  =bootTop-shinH;
+  const thighTop =shinTop-thighH;
+  const hipTop   =thighTop-hipH;
+  const torsoTop =hipTop-torsoH;
+  const neckTop  =torsoTop-neckH;
+  const headBot  =neckTop;
+  const headTop  =headBot-headH;
+  const hairTop  =headTop-5;
+
+  // Widths
+  const shoulderHW=isStocky?24:isSlender?18:21; // half-width
+  const waistHW   =isStocky?18:isSlender?13:isFemale?13:15;
+  const hipHW     =isStocky?20:isSlender?15:isFemale?18:16;
+  const legSep    =isStocky?7:5; // gap between legs
+  const legHW     =isStocky?9:8;  // half-width of each leg
+  const headHW    =Math.round(headW/2);
+  const realNeckW =isStocky?neckW+3:neckW;
+
+  const bodyLeft  =cx-shoulderHW;
+  const bodyRight =cx+shoulderHW;
+  const waistLeft =cx-waistHW;
+  const waistRight=cx+waistHW;
+  const hipLeft   =cx-hipHW;
+  const hipRight  =cx+hipHW;
+  const legLcx    =cx-legSep-legHW;  // left leg center
+  const legRcx    =cx+legSep+legHW;  // right leg center
+  const hx        =cx-headHW;        // head left edge
+  const nx        =cx-Math.floor(realNeckW/2); // neck left edge
+
+  const skinR=ramp(skin);
+  const hairR=ramp(hair);
+  const armorR=ramp(bodyCol);
+  const legR  =ramp(legCol);
+  const pantCol=tint(legCol,-0.12);
+
+  // ── Cast shadow ───────────────────────────────────────────
+  const sg=ctx.createRadialGradient(cx,ground,1,cx,ground,isStocky?20:16);
+  sg.addColorStop(0,'rgba(0,0,0,0.50)');sg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=sg;ctx.beginPath();ctx.ellipse(cx,ground,isStocky?20:16,5,0,0,Math.PI*2);ctx.fill();
+
+  // ── Immortal aura ─────────────────────────────────────────
+  if(raceData.aura){
+    const ag=ctx.createRadialGradient(cx,neckTop,2,cx,neckTop,32);
+    ag.addColorStop(0,'rgba(255,210,80,0.22)');ag.addColorStop(0.5,'rgba(255,150,0,0.10)');ag.addColorStop(1,'rgba(255,80,0,0)');
+    ctx.fillStyle=ag;ctx.beginPath();ctx.ellipse(cx,neckTop,32,38,0,0,Math.PI*2);ctx.fill();
+  }
+  // Celestial glow
+  if(raceData.glow){
+    const gg=ctx.createRadialGradient(cx,headTop+headH/2,2,cx,headTop+headH/2,22);
+    gg.addColorStop(0,'rgba(190,140,255,0.28)');gg.addColorStop(1,'rgba(80,40,200,0)');
+    ctx.fillStyle=gg;ctx.beginPath();ctx.ellipse(cx,headTop+headH/2,22,24,0,0,Math.PI*2);ctx.fill();
+  }
+
+  // ── Merfolk tail (skip legs) ──────────────────────────────
+  if(raceData.tail){
+    // Tail body
+    const tailCol=tint(skin,-0.05);
+    sBlock(ctx,cx-12,hipTop,24,ground-hipTop-8,tailCol,{hi:0.18,sh:0.15,outline:true,ol:skinR[0]});
+    // Fin
+    ctx.fillStyle=skinR[0];
+    ctx.beginPath();ctx.moveTo(cx-18,ground-6);ctx.lineTo(cx+18,ground-6);
+    ctx.lineTo(cx+14,ground+2);ctx.lineTo(cx,ground-2);ctx.lineTo(cx-14,ground+2);ctx.closePath();ctx.fill();
+    ctx.fillStyle=tailCol;
+    ctx.beginPath();ctx.moveTo(cx-15,ground-6);ctx.lineTo(cx+15,ground-6);
+    ctx.lineTo(cx+11,ground+1);ctx.lineTo(cx,ground-3);ctx.lineTo(cx-11,ground+1);ctx.closePath();ctx.fill();
+    ctx.fillStyle=skinR[3];ctx.fillRect(cx-15,ground-6,2,4);
+  } else {
+    // ── Left leg ─────────────────────────────────────────
+    const llx=legLcx-legHW;
+    // Thigh
+    sBlock(ctx,llx,thighTop,legHW*2,thighH,pantCol,{hi:0.16,sh:0.14});
+    ao(ctx,llx,thighTop,legHW*2);
+    // Shin with knee cap
+    ctx.fillStyle=legR[0];ctx.fillRect(llx-1,shinTop-2,legHW*2+2,1); // knee outline
+    ctx.fillStyle=tint(pantCol,0.08);ctx.fillRect(llx,shinTop-2,legHW*2,4); // kneecap
+    ctx.fillStyle=tint(pantCol,0.22);ctx.fillRect(llx+2,shinTop-1,legHW*2-4,2); // knee highlight
+    sBlock(ctx,llx+1,shinTop+2,legHW*2-2,shinH-4,pantCol,{hi:0.14,sh:0.12});
+    // Boot
+    const bootL=llx-1;
+    sBlock(ctx,bootL,bootTop,legHW*2+2,bootH,tint(legCol,-0.30),{hi:0.14,sh:0.18});
+    ao(ctx,bootL,bootTop,legHW*2+2);
+    // Boot toe
+    ctx.fillStyle=tint(legCol,-0.15);ctx.fillRect(bootL,bootTop+bootH-4,legHW*2+2,2);
+    ctx.fillStyle=tint(legCol,-0.05);ctx.fillRect(bootL+1,bootTop+bootH-5,3,1);
+
+    // ── Right leg ─────────────────────────────────────────
+    const rlx=legRcx-legHW;
+    sBlock(ctx,rlx,thighTop,legHW*2,thighH,tint(pantCol,-0.06),{hi:0.12,sh:0.16});
+    ao(ctx,rlx,thighTop,legHW*2);
+    ctx.fillStyle=legR[0];ctx.fillRect(rlx-1,shinTop-2,legHW*2+2,1);
+    ctx.fillStyle=tint(pantCol,0.06);ctx.fillRect(rlx,shinTop-2,legHW*2,4);
+    ctx.fillStyle=tint(pantCol,0.18);ctx.fillRect(rlx+2,shinTop-1,legHW*2-4,2);
+    sBlock(ctx,rlx+1,shinTop+2,legHW*2-2,shinH-4,tint(pantCol,-0.04),{hi:0.12,sh:0.14});
+    const bootR=rlx-1;
+    sBlock(ctx,bootR,bootTop,legHW*2+2,bootH,tint(legCol,-0.34),{hi:0.10,sh:0.20});
+    ao(ctx,bootR,bootTop,legHW*2+2);
+    ctx.fillStyle=tint(legCol,-0.15);ctx.fillRect(bootR,bootTop+bootH-4,legHW*2+2,2);
+    ctx.fillStyle=tint(legCol,-0.05);ctx.fillRect(bootR+legHW*2-2,bootTop+bootH-5,3,1);
+  }
+
+  // ── Hips / belt area ─────────────────────────────────────
+  const hipW=hipRight-hipLeft;
+  sBlock(ctx,hipLeft,hipTop,hipW,hipH,tint(bodyCol,-0.15),{hi:0.10,sh:0.18});
+  ao(ctx,hipLeft,hipTop,hipW);
+  // Belt
+  const beltCol=tint(legCol,-0.25);
+  sBlock(ctx,hipLeft-1,hipTop+1,hipW+2,5,beltCol,{hi:0.08,sh:0.14,ol:ramp(beltCol)[0]});
+  // Buckle
+  const buckleCol='#b89030';
+  sBlock(ctx,cx-4,hipTop+1,8,5,buckleCol,{hi:0.30,sh:0.20,ol:tint(buckleCol,-0.45)});
+  // Buckle ring detail
+  ctx.fillStyle=tint(buckleCol,-0.35);ctx.fillRect(cx-2,hipTop+2,4,1);ctx.fillRect(cx-2,hipTop+4,4,1);
+
+  // ── Arms ─────────────────────────────────────────────────
+  const armW=isStocky?11:isSlender?8:9;
+  const armUH=Math.round(torsoH*0.52); // upper arm
+  const armLH=torsoH-armUH+2;          // forearm
+  const armLY=torsoTop+armUH-2;
+  // Pauldron position
+  const pauR=isStocky?9:isSlender?7:8;
+
+  // Left arm (slightly lighter - lit side)
+  const lax=bodyLeft-armW-1;
+  sBlock(ctx,lax,torsoTop+4,armW,armUH,tint(bodyCol,0.06),{hi:0.18,sh:0.12});
+  sBlock(ctx,lax+1,armLY,armW-2,armLH,tint(bodyCol,0.02),{hi:0.14,sh:0.14});
+  // Left hand / glove
+  sBlock(ctx,lax+1,armLY+armLH-1,armW-2,6,tint(skin,-0.05),{hi:0.18,sh:0.14,ol:skinR[0]});
+
+  // Right arm (slightly darker - shadow side)
+  const rax=bodyRight+1;
+  sBlock(ctx,rax,torsoTop+4,armW,armUH,tint(bodyCol,-0.06),{hi:0.10,sh:0.18});
+  sBlock(ctx,rax+1,armLY,armW-2,armLH,tint(bodyCol,-0.08),{hi:0.08,sh:0.18});
+  sBlock(ctx,rax+1,armLY+armLH-1,armW-2,6,tint(skin,-0.08),{hi:0.12,sh:0.18,ol:skinR[0]});
+
+  // ── Torso ─────────────────────────────────────────────────
+  const torsoW=bodyRight-bodyLeft;
+  // Main body block (slightly tapered - full rect then trim)
+  sBlock(ctx,bodyLeft,torsoTop,torsoW,torsoH,bodyCol,{hi:0.16,sh:0.18});
+  ao(ctx,bodyLeft,torsoTop,torsoW);
+  // Taper: cut corners at waist level with darker fill
+  const taperY=torsoTop+Math.round(torsoH*0.6);
+  const taperW=shoulderHW-waistHW;
+  ctx.fillStyle=bodyCol;
+  // Waist taper left
+  for(let i=0;i<taperW;i++){
+    const progress=i/taperW;
+    ctx.fillStyle=mix(armorR[1],bodyCol,progress);
+    ctx.fillRect(bodyLeft+i,taperY+Math.round((torsoH-Math.round(torsoH*0.6))*progress*0.9),
+      1,torsoTop+torsoH-(taperY+Math.round((torsoH-Math.round(torsoH*0.6))*progress*0.9)));
+  }
+  // Waist taper right
+  for(let i=0;i<taperW;i++){
+    const progress=i/taperW;
+    ctx.fillStyle=mix(bodyCol,armorR[1],progress);
+    const rx=bodyRight-i-1;
+    ctx.fillRect(rx,taperY+Math.round((torsoH-Math.round(torsoH*0.6))*progress*0.9),
+      1,torsoTop+torsoH-(taperY+Math.round((torsoH-Math.round(torsoH*0.6))*progress*0.9)));
+  }
+
+  // Chest detail (armor lines)
+  if(armor==='plate'){
+    ctx.fillStyle=armorR[3];
+    ctx.fillRect(cx-2,torsoTop+3,4,1); // center chest line
+    ctx.fillRect(cx-8,torsoTop+5,5,1); ctx.fillRect(cx+4,torsoTop+5,5,1); // pec lines
+    ctx.fillStyle=armorR[1];
+    ctx.fillRect(cx-2,torsoTop+4,4,1);
+    ctx.fillRect(bodyLeft+1,torsoTop+1,1,torsoH-8); // left edge crease
+  } else if(armor==='robe'){
+    ctx.fillStyle=armorR[3];
+    ctx.fillRect(cx-1,torsoTop+2,2,torsoH-4); // robe center line
+    ctx.fillStyle=armorR[1];
+    for(let i=4;i<torsoH-4;i+=5)ctx.fillRect(bodyLeft+3,torsoTop+i,torsoW-6,1);
+  }
+  // Female bust indication
+  if(isFemale&&armor!=='plate'){
+    ctx.fillStyle=tint(bodyCol,-0.08);
+    ctx.beginPath();ctx.arc(cx-6,torsoTop+9,5,0,Math.PI*2);ctx.fill();
+    ctx.beginPath();ctx.arc(cx+6,torsoTop+9,5,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle=tint(bodyCol,0.12);
+    ctx.beginPath();ctx.arc(cx-7,torsoTop+7,3,0,Math.PI*2);ctx.fill();
+    ctx.beginPath();ctx.arc(cx+7,torsoTop+7,3,0,Math.PI*2);ctx.fill();
+  }
+
+  // Pauldrons
+  sCircle(ctx,bodyLeft,torsoTop+3,pauR,tint(bodyCol,0.08));
+  sCircle(ctx,bodyRight,torsoTop+3,pauR,tint(bodyCol,0.04));
+
+  // ── Neck ─────────────────────────────────────────────────
+  sBlock(ctx,nx,neckTop,realNeckW,neckH,skin,{hi:0.14,sh:0.12,ol:skinR[0]});
+  ao(ctx,nx,neckTop,realNeckW);
+
+  // ── Head ─────────────────────────────────────────────────
+  // Slightly oval – draw as rect with rounded corners approximated
+  sBlock(ctx,hx,headTop,headW,headH,skin,{hi:0.18,sh:0.14,ol:skinR[0]});
+  // Head side shading (cheek planes)
+  hGrad(ctx,hx,headTop+4,4,headH-8,tint(skin,0.14),skin,5);
+  hGrad(ctx,hx+headW-4,headTop+4,4,headH-8,skin,tint(skin,-0.12),5);
+
+  // ── Xoran crest (behind head) ────────────────────────────
+  if(raceData.crest){
+    ctx.fillStyle=skinR[0];ctx.fillRect(cx-1,hairTop-8,4,10);
+    ctx.fillStyle=tint(hair,0.10);ctx.fillRect(cx,hairTop-7,2,8);
+    for(let s=0;s<4;s++){ctx.fillStyle=tint(hair,0.05);ctx.fillRect(cx-1+s,hairTop-9-s,2,3);}
+  }
+  // Fin ears (behind head)
+  if(raceData.finEars){
+    ctx.fillStyle=skinR[0];
+    ctx.beginPath();ctx.moveTo(hx-1,headTop+6);ctx.lineTo(hx-10,headTop+1);ctx.lineTo(hx-9,headTop+11);ctx.closePath();ctx.fill();
+    ctx.fillStyle=tint(skin,-0.05);
+    ctx.beginPath();ctx.moveTo(hx,headTop+6);ctx.lineTo(hx-8,headTop+2);ctx.lineTo(hx-8,headTop+10);ctx.closePath();ctx.fill();
+    ctx.fillStyle=skinR[0];
+    ctx.beginPath();ctx.moveTo(hx+headW+1,headTop+6);ctx.lineTo(hx+headW+10,headTop+1);ctx.lineTo(hx+headW+9,headTop+11);ctx.closePath();ctx.fill();
+    ctx.fillStyle=tint(skin,-0.05);
+    ctx.beginPath();ctx.moveTo(hx+headW,headTop+6);ctx.lineTo(hx+headW+8,headTop+2);ctx.lineTo(hx+headW+8,headTop+10);ctx.closePath();ctx.fill();
+  }
+  // Leaf ears (Sylvari)
+  if(raceData.leafEars){
+    ctx.fillStyle=skinR[0];
+    ctx.beginPath();ctx.moveTo(hx,headTop+4);ctx.lineTo(hx-9,headTop-2);ctx.lineTo(hx-6,headTop+8);ctx.closePath();ctx.fill();
+    ctx.fillStyle=tint(hair,0.12);
+    ctx.beginPath();ctx.moveTo(hx,headTop+4);ctx.lineTo(hx-7,headTop-1);ctx.lineTo(hx-5,headTop+7);ctx.closePath();ctx.fill();
+    ctx.fillStyle=skinR[0];
+    ctx.beginPath();ctx.moveTo(hx+headW,headTop+4);ctx.lineTo(hx+headW+9,headTop-2);ctx.lineTo(hx+headW+6,headTop+8);ctx.closePath();ctx.fill();
+    ctx.fillStyle=tint(hair,0.12);
+    ctx.beginPath();ctx.moveTo(hx+headW,headTop+4);ctx.lineTo(hx+headW+7,headTop-1);ctx.lineTo(hx+headW+5,headTop+7);ctx.closePath();ctx.fill();
+  }
+  // Pointed ears (elf, orc, immortal)
+  if(raceData.ears==='pointed'||opts.race==='elf'||opts.race==='immortal'){
+    ctx.fillStyle=skinR[0];
+    ctx.beginPath();ctx.moveTo(hx,headTop+5);ctx.lineTo(hx-7,headTop+1);ctx.lineTo(hx,headTop+9);ctx.closePath();ctx.fill();
+    ctx.fillStyle=skin;
+    ctx.beginPath();ctx.moveTo(hx,headTop+5);ctx.lineTo(hx-5,headTop+2);ctx.lineTo(hx,headTop+8);ctx.closePath();ctx.fill();
+    ctx.fillStyle=skinR[0];
+    ctx.beginPath();ctx.moveTo(hx+headW,headTop+5);ctx.lineTo(hx+headW+7,headTop+1);ctx.lineTo(hx+headW,headTop+9);ctx.closePath();ctx.fill();
+    ctx.fillStyle=skin;
+    ctx.beginPath();ctx.moveTo(hx+headW,headTop+5);ctx.lineTo(hx+headW+5,headTop+2);ctx.lineTo(hx+headW,headTop+8);ctx.closePath();ctx.fill();
+  }
+
+  // ── Hair ─────────────────────────────────────────────────
+  const hairStyles=['short','long','short','ponytail'];
+  let hStyle=hairStyles[Object.keys(RACES).indexOf(opts.race)%hairStyles.length]||'short';
+  if(isFemale&&hStyle==='short')hStyle='long';
+
+  // Hair crown
+  sBlock(ctx,hx-1,hairTop,headW+2,6,hair,{hi:0.22,sh:0.18,ol:hairR[0]});
+  // Side coverage
+  ctx.fillStyle=hair;ctx.fillRect(hx,headTop,2,Math.round(headH*0.6));ctx.fillRect(hx+headW-2,headTop,2,Math.round(headH*0.6));
+  // Hair highlight sheen
+  hGrad(ctx,hx+2,hairTop+1,headW-4,3,hairR[4],hairR[2],6);
+
+  if(hStyle==='long'||hStyle==='ponytail'){
+    // Long strands down sides
+    sBlock(ctx,hx-1,headTop,3,headH,tint(hair,-0.05),{hi:0.16,sh:0.14,ol:hairR[0]});
+    sBlock(ctx,hx+headW-2,headTop,3,headH,tint(hair,-0.10),{hi:0.10,sh:0.18,ol:hairR[0]});
+    if(isFemale){
+      // Past shoulders
+      sBlock(ctx,hx,headBot,3,neckH+6,tint(hair,-0.12),{hi:0.12,sh:0.16,ol:hairR[0]});
+      sBlock(ctx,hx+headW-3,headBot,3,neckH+6,tint(hair,-0.16),{hi:0.08,sh:0.20,ol:hairR[0]});
+    }
+  }
+  if(hStyle==='ponytail'){
+    sBlock(ctx,cx-2,hairTop,4,headH+10,tint(hair,-0.06),{hi:0.14,sh:0.16,ol:hairR[0]});
+  }
+
+  // Dwarf beard
+  if(raceData.beard){
+    const bH=isStocky?18:14;
+    sBlock(ctx,hx+1,headBot,headW-2,bH,hair,{hi:0.18,sh:0.20,ol:hairR[0]});
+    // Braid lines
+    ctx.fillStyle=hairR[1];
+    ctx.fillRect(hx+5,headBot+3,1,bH-5);ctx.fillRect(hx+headW-6,headBot+3,1,bH-5);
+    // Braid tie
+    sBlock(ctx,hx+4,headBot+bH-4,headW-8,4,tint(hair,-0.10),{hi:0.10,sh:0.14,ol:hairR[0]});
+  }
+  // Sylvari leaf markings on face
+  if(raceData.leafMark){
+    ctx.fillStyle=alpha(tint(hair,-0.10),0.40);
+    ctx.beginPath();ctx.arc(hx+4,headTop+headH-4,4,0,Math.PI*2);ctx.fill();
+    ctx.beginPath();ctx.arc(hx+headW-4,headTop+headH-4,4,0,Math.PI*2);ctx.fill();
+  }
+  // Xoran scale marks on face
+  if(raceData.scales){
+    ctx.fillStyle='rgba(0,0,0,0.18)';
+    for(let r=0;r<3;r++)for(let c=0;c<4;c++)ctx.fillRect(hx+2+c*5,headTop+2+r*5,3,1);
+  }
+
+  // ── Eyebrows ─────────────────────────────────────────────
+  const browY=headTop+4;
+  const browCol=tint(hair,-0.12);
+  ctx.fillStyle=browCol;
+  const browInner=hx+3,browOuter=hx+headW-7;
+  if(raceData.browRidge||raceData.thickBrow){
+    // Heavy brow ridge
+    ctx.fillRect(browInner-1,browY,7,2);ctx.fillRect(browOuter-1,browY,7,2);
+    ctx.fillStyle=tint(browCol,-0.20);
+    ctx.fillRect(browInner,browY+2,5,1);ctx.fillRect(browOuter,browY+2,5,1);
+  } else if(isFemale){
+    // Arched brow
+    ctx.fillRect(browInner,browY,5,1);ctx.fillRect(browOuter,browY,5,1);
+    ctx.fillRect(browInner+4,browY-1,2,1);ctx.fillRect(browOuter+4,browY-1,2,1); // arch peak
+  } else {
+    ctx.fillRect(browInner,browY,6,1);ctx.fillRect(browOuter,browY,6,1);
+  }
+
+  // ── Eyes ─────────────────────────────────────────────────
+  const eyeY=headTop+7;
+  const eyeW=raceData.bigEyes||raceData.wideEyes?5:raceData.largeEyes?4:3;
+  const eyeH=raceData.bigEyes||raceData.wideEyes?4:raceData.largeEyes?4:3;
+  const eyeLX=hx+3, eyeRX=hx+headW-3-eyeW;
+  const eyeR=ramp(eye);
+
+  if(raceData.hollowEyes){
+    // Sunken undead sockets
+    ctx.fillStyle='#180808';ctx.fillRect(eyeLX-1,eyeY-1,eyeW+2,eyeH+2);ctx.fillRect(eyeRX-1,eyeY-1,eyeW+2,eyeH+2);
+    ctx.fillStyle='#ff3000';ctx.fillRect(eyeLX,eyeY,eyeW,eyeH);ctx.fillRect(eyeRX,eyeY,eyeW,eyeH);
+    ctx.fillStyle='#ff7040';ctx.fillRect(eyeLX,eyeY,2,1);ctx.fillRect(eyeRX,eyeY,2,1);
+    // Sunken cheek shadow
+    ctx.fillStyle='rgba(0,0,0,0.25)';
+    ctx.beginPath();ctx.ellipse(eyeLX+eyeW/2,eyeY+eyeH+2,eyeW,3,0,0,Math.PI*2);ctx.fill();
+    ctx.beginPath();ctx.ellipse(eyeRX+eyeW/2,eyeY+eyeH+2,eyeW,3,0,0,Math.PI*2);ctx.fill();
+  } else {
+    // White sclera
+    ctx.fillStyle='#f8f4ef';ctx.fillRect(eyeLX-1,eyeY,eyeW+2,eyeH);ctx.fillRect(eyeRX-1,eyeY,eyeW+2,eyeH);
+    // Iris
+    ctx.fillStyle=eye;ctx.fillRect(eyeLX,eyeY,eyeW,eyeH);ctx.fillRect(eyeRX,eyeY,eyeW,eyeH);
+    // Iris shading
+    ctx.fillStyle=eyeR[1];ctx.fillRect(eyeLX+1,eyeY+1,eyeW-1,eyeH-1);ctx.fillRect(eyeRX+1,eyeY+1,eyeW-1,eyeH-1);
+    // Pupil
+    ctx.fillStyle='#100808';ctx.fillRect(eyeLX+1,eyeY+1,eyeW-2,eyeH-1);ctx.fillRect(eyeRX+1,eyeY+1,eyeW-2,eyeH-1);
+    // Iris rim
+    ctx.fillStyle=eyeR[2];ctx.fillRect(eyeLX,eyeY,1,eyeH);ctx.fillRect(eyeRX,eyeY,1,eyeH);
+    // Catchlight (top-left highlight)
+    ctx.fillStyle='rgba(255,255,255,0.95)';ctx.fillRect(eyeLX,eyeY,2,1);ctx.fillRect(eyeRX,eyeY,2,1);
+    // Eye outline
+    ctx.fillStyle='#20101a';
+    ctx.fillRect(eyeLX-1,eyeY-1,eyeW+2,1);ctx.fillRect(eyeRX-1,eyeY-1,eyeW+2,1); // top
+    ctx.fillRect(eyeLX-1,eyeY+eyeH,eyeW+2,1);ctx.fillRect(eyeRX-1,eyeY+eyeH,eyeW+2,1); // bottom
+    ctx.fillRect(eyeLX-1,eyeY,1,eyeH);ctx.fillRect(eyeRX-1,eyeY,1,eyeH); // left
+    ctx.fillRect(eyeLX+eyeW,eyeY,1,eyeH);ctx.fillRect(eyeRX+eyeW,eyeY,1,eyeH); // right
+    // Female eyelashes
+    if(isFemale){
+      ctx.fillStyle='#201018';
+      ctx.fillRect(eyeLX+eyeW,eyeY-2,1,1);ctx.fillRect(eyeLX+eyeW+1,eyeY-2,1,1);ctx.fillRect(eyeLX+eyeW-1,eyeY-2,1,1);
+      ctx.fillRect(eyeRX-1,eyeY-2,1,1);ctx.fillRect(eyeRX-2,eyeY-2,1,1);ctx.fillRect(eyeRX,eyeY-2,1,1);
+    }
+    // Slit pupil (Xoran)
+    if(raceData.slitPupil){
+      ctx.fillStyle='rgba(0,0,0,0.8)';
+      ctx.fillRect(eyeLX+Math.floor(eyeW/2),eyeY,1,eyeH);ctx.fillRect(eyeRX+Math.floor(eyeW/2),eyeY,1,eyeH);
+    }
+    // Mhun: dark ring around large eye
+    if(raceData.largeEyes){
+      ctx.strokeStyle='rgba(0,0,0,0.40)';ctx.lineWidth=0.8;
+      ctx.strokeRect(eyeLX-1.5,eyeY-1.5,eyeW+3,eyeH+3);ctx.strokeRect(eyeRX-1.5,eyeY-1.5,eyeW+3,eyeH+3);
+    }
+  }
+
+  // ── Nose ─────────────────────────────────────────────────
+  const noseY=headTop+12;
+  ctx.fillStyle=tint(skin,-0.16);ctx.fillRect(cx,noseY,2,1);
+  ctx.fillStyle=tint(skin,-0.10);ctx.fillRect(cx-1,noseY+1,4,1);
+  if(raceData.frogFace){ctx.fillRect(cx-2,noseY,6,1);}
+  // Troll/Orc: wide flat nose
+  if(raceData.browRidge||raceData.thickBrow){
+    ctx.fillStyle=tint(skin,-0.18);ctx.fillRect(cx-2,noseY,6,2);
+    ctx.fillStyle=tint(skin,-0.08);ctx.fillRect(cx-1,noseY,4,1);
+  }
+
+  // ── Mouth ─────────────────────────────────────────────────
+  const mouthY=headTop+16;
+  const mW=isFemale?5:raceData.frogFace?8:6;
+  const mX=cx-Math.floor(mW/2);
+  if(raceData.hollowEyes){
+    // Skeletal jaw gap
+    ctx.fillStyle='#180808';ctx.fillRect(hx+3,mouthY,headW-6,3);
+    ctx.fillStyle='#d8d0c0';for(let t=0;t<4;t++)ctx.fillRect(hx+4+t*3,mouthY,2,3);
+    ctx.fillStyle='rgba(0,0,0,0.4)';ctx.fillRect(hx+2,mouthY+3,headW-4,1);
+  } else if(raceData.frogFace){
+    ctx.fillStyle=tint(lips,-0.30);ctx.fillRect(mX-1,mouthY,mW+2,3);
+    ctx.fillStyle=lips;ctx.fillRect(mX,mouthY,mW,2);
+    ctx.fillStyle=tint(lips,0.20);ctx.fillRect(mX,mouthY,mW,1);
+  } else if(isFemale){
+    // Defined lips
+    ctx.fillStyle=tint(lips,-0.22);ctx.fillRect(mX,mouthY+2,mW,1);
+    ctx.fillStyle=lips;ctx.fillRect(mX,mouthY+1,mW,1);
+    ctx.fillStyle=tint(lips,-0.08);ctx.fillRect(mX,mouthY,mW,1);
+    ctx.fillStyle=tint(lips,0.22);ctx.fillRect(mX+1,mouthY,mW-2,1);
+    // Cupid's bow
+    ctx.fillStyle=tint(lips,0.15);ctx.fillRect(cx-1,mouthY-1,2,1);
+  } else {
+    // Neutral/slight expression
+    ctx.fillStyle=tint(skin,-0.20);ctx.fillRect(mX,mouthY,mW,1);
+    ctx.fillStyle=tint(skin,0.08);ctx.fillRect(mX,mouthY+1,mW,1);
+    // Corners
+    if(raceData.browRidge){
+      ctx.fillStyle=tint(skin,-0.12);ctx.fillRect(mX-1,mouthY+1,1,1);ctx.fillRect(mX+mW,mouthY+1,1,1);
+    }
+  }
+
+  // ── Rosy cheeks ──────────────────────────────────────────
+  if(raceData.rosy||(isFemale&&!raceData.hollowEyes)){
+    const ba=raceData.rosy?0.38:0.18;
+    ctx.fillStyle=`rgba(230,90,90,${ba})`;
+    ctx.beginPath();ctx.arc(hx+3,eyeY+3,3,0,Math.PI*2);ctx.fill();
+    ctx.beginPath();ctx.arc(hx+headW-3,eyeY+3,3,0,Math.PI*2);ctx.fill();
+  }
+  // Undead sunken cheeks
+  if(raceData.sunkenCheeks){
+    ctx.fillStyle='rgba(0,0,0,0.22)';
+    ctx.beginPath();ctx.arc(hx+3,eyeY+4,4,0,Math.PI*2);ctx.fill();
+    ctx.beginPath();ctx.arc(hx+headW-3,eyeY+4,4,0,Math.PI*2);ctx.fill();
+  }
+
+  // Orc tusks
+  if(raceData.tusks){
+    const tr=ramp('#e0d8a8');
+    ctx.fillStyle=tr[0];ctx.fillRect(hx+5,mouthY+2,3,6);ctx.fillRect(hx+headW-8,mouthY+2,3,6);
+    ctx.fillStyle='#e0d8a8';ctx.fillRect(hx+5,mouthY+2,2,5);ctx.fillRect(hx+headW-8,mouthY+2,2,5);
+    ctx.fillStyle=tr[3];ctx.fillRect(hx+5,mouthY+2,1,2);ctx.fillRect(hx+headW-8,mouthY+2,1,2);
+  }
+
+  // Grook throat pouch
+  if(raceData.frogFace){
+    ctx.fillStyle=tint(skin,-0.10);
+    ctx.beginPath();ctx.ellipse(cx,headBot+2,7,4,0,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle=tint(skin,0.08);
+    ctx.beginPath();ctx.ellipse(cx-1,headBot+1,4,2,0,0,Math.PI*2);ctx.fill();
+  }
+
+  // ── Immortal halo ─────────────────────────────────────────
+  if(raceData.halo){
+    ctx.strokeStyle='#ffd040';ctx.lineWidth=2;
+    ctx.beginPath();ctx.ellipse(cx,hairTop-3,13,4,0,0,Math.PI*2);ctx.stroke();
+    ctx.strokeStyle='rgba(255,220,100,0.45)';ctx.lineWidth=1;
+    ctx.beginPath();ctx.ellipse(cx,hairTop-3,16,5,0,0,Math.PI*2);ctx.stroke();
+  }
+}
+
+// ── Weapon draw ───────────────────────────────────────────────
+function drawWeapon(ctx,cx,bodyTop,bodyBottom,ground,wtype,col){
+  if(wtype==='none')return;
+  const wCol=col||'#a0a8b8';
+  const wr=ramp(wCol);
+  const wood='#6a4020',woodR=ramp(wood);
+
+  if(wtype==='sword'){
+    const bx=cx+shoulderOffset(ctx);
+    const bladeTop=bodyTop-10;
+    // Guard
+    sBlock(ctx,bx-5,bodyTop+4,12,3,wr[1],{hi:0.18,sh:0.20,ol:wr[0]});
+    // Handle
+    sBlock(ctx,bx-1,bodyTop+7,3,bodyBottom-bodyTop-5,wood,{hi:0.22,sh:0.20,ol:woodR[0]});
+    // Blade
+    sBlock(ctx,bx-1,bladeTop,3,bodyTop+4-bladeTop,wCol,{hi:0.28,sh:0.22,ol:wr[0]});
+    // Fuller
+    ctx.fillStyle=wr[1];ctx.fillRect(bx,bladeTop+2,1,bodyTop-bladeTop-4);
+    // Edge
+    ctx.fillStyle=wr[4];ctx.fillRect(bx-1,bladeTop+1,1,bodyTop-bladeTop-3);
+    // Tip
+    ctx.fillStyle=wr[0];ctx.fillRect(bx-1,bladeTop-2,3,2);ctx.fillStyle=wr[4];ctx.fillRect(bx-1,bladeTop-2,1,1);
+    // Pommel
+    sCircle(ctx,bx,bodyBottom-1,4,wr[1]);
+  } else if(wtype==='dagger'){
+    const bx=cx+10;
+    sBlock(ctx,bx-4,bodyTop+5,9,2,wr[1],{hi:0.16,sh:0.20,ol:wr[0]});
+    sBlock(ctx,bx-1,bodyTop+7,3,6,wood,{hi:0.20,sh:0.18,ol:woodR[0]});
+    sBlock(ctx,bx-1,bodyTop+1,3,4,wCol,{hi:0.26,sh:0.20,ol:wr[0]});
+    ctx.fillStyle=wr[4];ctx.fillRect(bx-1,bodyTop+2,1,3);
+    sCircle(ctx,bx,bodyTop+14,3,wr[1]);
+  } else if(wtype==='staff'){
+    const sx=cx+11;
+    const staffTop=bodyTop-14;
+    // Pole
+    vGrad(ctx,sx-1,staffTop,3,ground-staffTop,woodR[2],woodR[1],12);
+    ctx.fillStyle=woodR[0];ctx.fillRect(sx-2,staffTop,1,ground-staffTop);ctx.fillRect(sx+2,staffTop,1,ground-staffTop);
+    // Wood grain
+    ctx.fillStyle=woodR[3];for(let g=staffTop+5;g<ground-6;g+=7)ctx.fillRect(sx-1,g,3,1);
+    // Ferrule
+    sBlock(ctx,sx-2,ground-6,5,5,wr[1],{hi:0.16,sh:0.18,ol:wr[0]});
+    // Orb
+    sCircle(ctx,sx,staffTop+3,7,wCol);
+    // Orb glow
+    const og=ctx.createRadialGradient(sx-2,staffTop+1,0,sx,staffTop+3,7);
+    og.addColorStop(0,'rgba(255,255,255,0.50)');og.addColorStop(1,'rgba(255,255,255,0)');
+    ctx.fillStyle=og;ctx.beginPath();ctx.arc(sx,staffTop+3,7,0,Math.PI*2);ctx.fill();
+  } else if(wtype==='axe'){
+    const ax=cx+10;
+    sBlock(ctx,ax-1,bodyTop+4,3,bodyBottom-bodyTop-2,wood,{hi:0.22,sh:0.20,ol:woodR[0]});
+    // Head
+    ctx.fillStyle=wr[0];
+    ctx.beginPath();ctx.moveTo(ax+2,bodyTop+3);ctx.lineTo(ax+11,bodyTop-2);ctx.lineTo(ax+12,bodyTop+9);ctx.lineTo(ax+3,bodyTop+11);ctx.closePath();ctx.fill();
+    ctx.fillStyle=wCol;
+    ctx.beginPath();ctx.moveTo(ax+2,bodyTop+4);ctx.lineTo(ax+10,bodyTop);ctx.lineTo(ax+11,bodyTop+8);ctx.lineTo(ax+3,bodyTop+10);ctx.closePath();ctx.fill();
+    ctx.fillStyle=wr[3];ctx.fillRect(ax+10,bodyTop+1,1,7); // edge glint
+    // Beard
+    ctx.fillStyle=wr[1];ctx.beginPath();ctx.moveTo(ax+3,bodyTop+10);ctx.lineTo(ax+12,bodyTop+9);ctx.lineTo(ax+10,bodyTop+16);ctx.closePath();ctx.fill();
+    // Spike
+    ctx.fillStyle=wr[0];ctx.beginPath();ctx.moveTo(ax+2,bodyTop+3);ctx.lineTo(ax-4,bodyTop);ctx.lineTo(ax+2,bodyTop+7);ctx.closePath();ctx.fill();
+    ctx.fillStyle=wr[2];ctx.beginPath();ctx.moveTo(ax+2,bodyTop+3);ctx.lineTo(ax-2,bodyTop+1);ctx.lineTo(ax+2,bodyTop+6);ctx.closePath();ctx.fill();
+  } else if(wtype==='mace'){
+    const mx=cx+10;
+    sBlock(ctx,mx-1,bodyTop+7,3,bodyBottom-bodyTop-5,wood,{hi:0.20,sh:0.18,ol:woodR[0]});
+    sCircle(ctx,mx,bodyTop+3,6,wr[1]);
+    // Flanges
+    for(let f=0;f<6;f++){
+      const a=(f/6)*Math.PI*2;
+      const fx=mx+Math.round(Math.cos(a)*7),fy=bodyTop+3+Math.round(Math.sin(a)*7);
+      ctx.fillStyle=wr[0];ctx.fillRect(fx-1,fy-1,3,3);
+      ctx.fillStyle=wCol;ctx.fillRect(fx,fy,2,2);
+      if(f===5){ctx.fillStyle=wr[3];ctx.fillRect(fx,fy,1,1);}
+    }
+  } else if(wtype==='bow'){
+    const bx=cx+11;
+    const bowTop=bodyTop-8,bowBot=bodyBottom+4;
+    const bowMid=(bowTop+bowBot)/2;
+    ctx.strokeStyle=woodR[0];ctx.lineWidth=3;
+    ctx.beginPath();ctx.moveTo(bx,bowTop);ctx.quadraticCurveTo(bx+9,bowMid,bx,bowBot);ctx.stroke();
+    ctx.strokeStyle=wood;ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(bx,bowTop+1);ctx.quadraticCurveTo(bx+8,bowMid,bx,bowBot-1);ctx.stroke();
+    ctx.strokeStyle=woodR[3];ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(bx-1,bowTop+2);ctx.quadraticCurveTo(bx+6,bowMid,bx-1,bowBot-2);ctx.stroke();
+    // String
+    ctx.strokeStyle='#e0d890';ctx.lineWidth=0.8;
+    ctx.beginPath();ctx.moveTo(bx,bowTop);ctx.lineTo(bx-3,bowMid);ctx.lineTo(bx,bowBot);ctx.stroke();
+    // Arrow
+    ctx.fillStyle='#c0c8c0';ctx.fillRect(bx-4,bowMid-10,2,18);
+    ctx.fillStyle=wr[0];ctx.fillRect(bx-4,bowMid-12,2,2);ctx.fillStyle=wr[3];ctx.fillRect(bx-4,bowMid-12,1,1);
+    // Fletching
+    ctx.fillStyle='#903828';ctx.fillRect(bx-5,bowMid+5,3,2);ctx.fillRect(bx-5,bowMid+8,4,1);
+  }
+}
+function shoulderOffset(){return 12;} // weapon x-offset from cx
+
+// ── Render one canvas ─────────────────────────────────────────
+function renderCanvas(raceName,className,terrain,gender){
+  const rd=RACES[raceName]||RACES.human;
+  const cls=CLASSES[className]||CLASSES.warrior;
+  const canvas=document.createElement('canvas');
+  canvas.width=CW;canvas.height=CH;
+  const ctx=canvas.getContext('2d');
+  ctx.imageSmoothingEnabled=false;
+  ctx.scale(ZOOM,ZOOM);
+  const W=CW/ZOOM,H=CH/ZOOM;
+  drawBackground(ctx,W,H,terrain);
+  const ground=H-4,cx=Math.round(W/2);
+  drawSprite(ctx,cx,ground,{
+    skin:rd.skin,hair:rd.hair,eye:rd.eye,lips:rd.lips||'#c07060',
+    headW:rd.headW||22,headH:rd.headH||20,neckW:rd.neckW||9,build:rd.build||'normal',
+    bodyCol:cls.col,legCol:cls.legCol,armor:cls.armor,
+    race:raceName,raceData:rd,gender,
+  });
+  // Weapon position needs torso bounds
+  const shinH=20,thighH=24,hipH=10,torsoH=rd.build==='stocky'||rd.build==='huge'?38:34;
+  const legTot=Math.round(14+(shinH+thighH+hipH));
+  const bodyTop=ground-legTot-torsoH;
+  const bodyBot=ground-legTot;
+  drawWeapon(ctx,cx,bodyTop,bodyBot,ground,cls.weapon,cls.col);
+  return canvas;
+}
+
+// ── Render all cards ─────────────────────────────────────────
+function renderAll(){
+  const terrain=document.getElementById('selTerrain').value;
+  const className=document.getElementById('selClass').value;
+  const grid=document.getElementById('grid');
+  grid.innerHTML='';
+  for(const raceName of Object.keys(RACES)){
+    const card=document.createElement('div');card.className='card';
+    const sprites=document.createElement('div');sprites.className='sprites';
+    for(const gender of['male','female']){
+      const col=document.createElement('div');col.className='sprite-col';
+      col.appendChild(renderCanvas(raceName,className,terrain,gender));
+      const gl=document.createElement('div');gl.className='glabel';
+      gl.textContent=gender==='male'?'♂':'♀';
+      col.appendChild(gl);sprites.appendChild(col);
+    }
+    card.appendChild(sprites);
+    const lbl=document.createElement('div');lbl.className='label';
+    lbl.textContent=raceName.charAt(0).toUpperCase()+raceName.slice(1);
+    card.appendChild(lbl);
+    const sub=document.createElement('div');sub.className='sublabel';
+    sub.textContent=className;card.appendChild(sub);
+    grid.appendChild(card);
+  }
+}
+renderAll();
+</script>
+</body>
+</html>

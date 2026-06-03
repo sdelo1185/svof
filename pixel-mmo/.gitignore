@@ -1,0 +1,9 @@
+node_modules/
+server/node_modules/
+server/db/worldbuilding.db
+server/db/worldbuilding.db-shm
+server/db/worldbuilding.db-wal
+server/.env
+client/assets/generated/
+*.log
+.DS_Store
